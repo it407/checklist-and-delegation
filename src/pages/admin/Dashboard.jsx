@@ -510,49 +510,94 @@ const fetchMasterSheetColumnA = async () => {
         }
 
         // Get completion data based on dashboard type
-        let completionDateValue, completionDate;
-        if (dashboardType === "delegation") {
-          // For delegation: Column L (index 11) - "Actual"
-          completionDateValue = getCellValue(row, 11);
-        } else {
-          // For checklist: Column K (index 10) - "Actual"
-          completionDateValue = getCellValue(row, 10);
-        }
-       
-        completionDate = completionDateValue ? parseGoogleSheetsDate(String(completionDateValue)) : '';
+        // Get completion data - YE SECTION REPLACE KARO
+let completionDateValue, completionDate;
+let adminCompletionDateValue, adminCompletionDate;
+let adminReminder;
 
-        // Debug: Log completion date for first few rows
-        if (rowIndex <= 5) {
-          console.log(`Row ${rowIndex + 1}: completionDateValue="${completionDateValue}", parsed="${completionDate}"`);
-        }
+if (dashboardType === "delegation") {
+  // For delegation: Column L (index 11) - "Actual" - NO CHANGE IN DELEGATION
+  completionDateValue = getCellValue(row, 11);
+  completionDate = completionDateValue ? parseGoogleSheetsDate(String(completionDateValue)) : '';
+  
+  // Delegation mode uses simple logic - just check Column L
+  adminReminder = null; // Not used in delegation
+  adminCompletionDate = ''; // Not used in delegation
+} else {
+  // For checklist: Apply new logic
+  completionDateValue = getCellValue(row, 10); // Column K
+  adminCompletionDateValue = getCellValue(row, 16); // Column Q
+  adminReminder = getCellValue(row, 15); // Column P
+  
+  completionDate = completionDateValue ? parseGoogleSheetsDate(String(completionDateValue)) : '';
+  adminCompletionDate = adminCompletionDateValue ? parseGoogleSheetsDate(String(adminCompletionDateValue)) : '';
+}
 
-        // Track staff details
-        if (!staffTrackingMap.has(assignedTo)) {
-          staffTrackingMap.set(assignedTo, {
-            name: assignedTo,
-            totalTasks: 0,
-            completedTasks: 0,
-            pendingTasks: 0,
-            progress: 0
-          });
-        }
+// Debug logs - first 10 rows
+if (rowIndex <= 10 && dashboardType === "checklist") {
+  console.log(`Row ${rowIndex + 1} CHECKLIST DEBUG:`);
+  console.log(`  - Admin Reminder (Col P): "${adminReminder}"`);
+  console.log(`  - Completion Date (Col K): "${completionDate}"`);
+  console.log(`  - Admin Completion (Col Q): "${adminCompletionDate}"`);
+}
 
-        // Get additional task details
-        const taskDescription = getCellValue(row, 5) || 'Untitled Task'; // Column F - "Task Description"
-        const frequency = getCellValue(row, 7) || 'one-time'; // Column H - "Freq"
-       
-        // Determine task status for display purposes
-        let status = 'pending';
-       
-        if (completionDate && completionDate !== '') {
-          status = 'completed';
-        } else if (isDateInPast(taskStartDate) && !isDateToday(taskStartDate)) {
-          // For display: past dates (excluding today) = overdue
-          status = 'overdue';
-        } else {
-          // For display: today or future dates = pending
-          status = 'pending';
-        }
+// Track staff details
+if (!staffTrackingMap.has(assignedTo)) {
+  staffTrackingMap.set(assignedTo, {
+    name: assignedTo,
+    totalTasks: 0,
+    completedTasks: 0,
+    pendingTasks: 0,
+    progress: 0
+  });
+}
+
+// Get additional task details
+const taskDescription = getCellValue(row, 5) || 'Untitled Task';
+const frequency = getCellValue(row, 7) || 'one-time';
+
+// Determine task status
+let status = 'pending';
+let isCompleted = false;
+
+if (dashboardType === "checklist") {
+  // CHECKLIST MODE: Apply Admin Reminder logic
+  if (adminReminder && adminReminder.toString().toLowerCase() === 'yes') {
+    // If Admin Reminder is "Yes", BOTH Column K AND Column Q must be not null
+    isCompleted = (completionDate && completionDate !== '') && (adminCompletionDate && adminCompletionDate !== '');
+    
+    if (rowIndex <= 10) {
+      console.log(`  - Admin Reminder = YES`);
+      console.log(`  - Checking: Col K="${completionDate}" AND Col Q="${adminCompletionDate}"`);
+      console.log(`  - Result: isCompleted = ${isCompleted}`);
+    }
+  } else {
+    // If Admin Reminder is "No" or empty, check ONLY Column K
+    isCompleted = (completionDate && completionDate !== '');
+    
+    if (rowIndex <= 10) {
+      console.log(`  - Admin Reminder = NO or empty`);
+      console.log(`  - Checking: Only Col K="${completionDate}"`);
+      console.log(`  - Result: isCompleted = ${isCompleted}`);
+    }
+  }
+} else {
+  // DELEGATION MODE: Simple logic - just check completion date
+  isCompleted = (completionDate && completionDate !== '');
+}
+
+if (isCompleted) {
+  status = 'completed';
+} else if (isDateInPast(taskStartDate) && !isDateToday(taskStartDate)) {
+  status = 'overdue';
+} else {
+  status = 'pending';
+}
+
+if (rowIndex <= 10 && dashboardType === "checklist") {
+  console.log(`  - Final Status: ${status}`);
+  console.log(`---`);
+}
 
         // Debug: Log status determination for first few rows
         if (rowIndex <= 5) {

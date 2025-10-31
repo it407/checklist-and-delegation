@@ -927,125 +927,125 @@ function AccountDataPage() {
   );
 
   // Updated handleAdminMarkDone function - Column Q (col16) में store करेगा
-  const handleAdminMarkDone = async (historyId = null) => {
-    console.log("🟡 handleAdminMarkDone called | historyId:", historyId);
+ const handleAdminMarkDone = async (historyId = null) => {
+  console.log("🟡 handleAdminMarkDone called | historyId:", historyId);
 
-    if (userRole !== "admin") {
-      alert("Only admin can mark tasks as done");
-      console.warn("❌ Unauthorized: userRole =", userRole);
-      setIsAdminSubmitting(false); // Loading stop
+  if (userRole !== "admin") {
+    alert("Only admin can mark tasks as done");
+    console.warn("❌ Unauthorized: userRole =", userRole);
+    setIsAdminSubmitting(false);
+    return;
+  }
+
+  try {
+    // Step 1: Determine which items to process
+    const itemsToProcess = historyId
+      ? [historyData.find(item => item._id === historyId)]
+      : Array.from(selectedAdminItems).map(id => historyData.find(item => item._id === id));
+
+    console.log("📦 itemsToProcess:", itemsToProcess);
+
+    // Step 2: Filter valid items
+    const validItems = itemsToProcess.filter(item =>
+      item &&
+      item["col15"] &&
+      item["col15"].toString().toUpperCase() === "YES" &&
+      !(item["col16"] && item["col16"].toString().toUpperCase() === "DONE")
+    );
+
+    console.log("✅ validItems:", validItems);
+
+    if (validItems.length === 0) {
+      alert("No valid items to mark as done");
+      console.warn("⚠️ No valid items found for marking DONE");
       return;
     }
 
-    try {
-      // Step 1: Determine which items to process
-      const itemsToProcess = historyId
-        ? [historyData.find(item => item._id === historyId)]
-        : Array.from(selectedAdminItems).map(id => historyData.find(item => item._id === id));
+    // Step 3: Confirm with admin
+    const confirmed = window.confirm(
+      `Are you sure you want to mark ${validItems.length} task(s) as DONE?`
+    );
+    if (!confirmed) {
+      console.info("🟢 Admin cancelled confirmation");
+      return;
+    }
 
-      console.log("📦 itemsToProcess:", itemsToProcess);
+    // Step 4: Update local state immediately
+    setHistoryData(prev =>
+      prev.map(item => {
+        const shouldUpdate = validItems.some(validItem => validItem._id === item._id);
+        return shouldUpdate ? { ...item, col16: "DONE" } : item;
+      })
+    );
 
-      // Step 2: Filter valid items
-      const validItems = itemsToProcess.filter(item =>
-        item &&
-        item["col15"] &&
-        item["col15"].toString().toUpperCase() === "YES" &&
-        !(item["col16"] && item["col16"].toString().toUpperCase() === "DONE")
-      );
+    console.log("🟩 Local state updated (col16 = DONE) for:", validItems.map(v => v._id));
 
-      console.log("✅ validItems:", validItems);
+    // Step 5: Prepare submission data for Google Sheets
+    const submissionData = validItems.map(item => ({
+      taskId: item["col1"],
+      rowIndex: item._rowIndex,
+      adminStatus: "DONE"  // Change from doneStatus to adminStatus
+    }));
 
-      if (validItems.length === 0) {
-        alert("No valid items to mark as done");
-        console.warn("⚠️ No valid items found for marking DONE");
-        return;
-      }
+    console.log("📤 submissionData:", submissionData);
 
-      // Step 3: Confirm with admin
-      const confirmed = window.confirm(
-        `Are you sure you want to mark ${validItems.length} task(s) as DONE?`
-      );
-      if (!confirmed) {
-        console.info("🟢 Admin cancelled confirmation");
-        return;
-      }
+    const formData = new FormData();
+    formData.append("sheetName", CONFIG.SHEET_NAME);
+    formData.append("action", "updateAdminStatus");  // Change action name
+    formData.append("rowData", JSON.stringify(submissionData));
 
-      // Step 4: Update local state immediately
+    console.log("📄 formData to send:", {
+      sheetName: CONFIG.SHEET_NAME,
+      action: "updateAdminStatus",
+      rowData: submissionData
+    });
+
+    // Step 6: Submit to Google Apps Script
+    console.log("🚀 Sending request to:", CONFIG.APPS_SCRIPT_URL);
+    const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
+      method: "POST",
+      body: formData,
+    });
+
+    console.log("📬 Response status:", response.status);
+
+    const result = await response.json();
+    console.log("🧾 API Response:", result);
+
+    // Step 7: Handle response
+    if (result.success) {
+      console.log(`✅ Successfully marked ${validItems.length} task(s) as DONE`);
+      setSuccessMessage(`Successfully marked ${validItems.length} task(s) as DONE!`);
+      setTimeout(() => setSuccessMessage(""), 5000);
+
+      setSelectedAdminItems(new Set()); // Clear selection
+    } else {
+      console.error("❌ Server returned an error:", result.error);
+      throw new Error(result.error);
+    }
+
+  } catch (error) {
+    console.error("🚨 Error marking task as done:", error);
+    alert("Error marking task as done");
+
+    // Step 8: Rollback in case of error
+    if (historyId) {
+      console.warn("↩️ Reverting local state for single historyId:", historyId);
+      const historyItem = historyData.find(item => item._id === historyId);
       setHistoryData(prev =>
-        prev.map(item => {
-          const shouldUpdate = validItems.some(validItem => validItem._id === item._id);
-          return shouldUpdate ? { ...item, col16: "DONE" } : item;
-        })
+        prev.map(item =>
+          item._id === historyId
+            ? { ...item, col16: historyItem["col16"] }
+            : item
+        )
       );
-
-      console.log("🟩 Local state updated (col16 = DONE) for:", validItems.map(v => v._id));
-
-      // Step 5: Prepare submission data for Google Sheets
-      const submissionData = validItems.map(item => ({
-        taskId: item["col1"],
-        rowIndex: item._rowIndex,
-        doneStatus: "DONE"
-      }));
-
-      console.log("📤 submissionData:", submissionData);
-
-      const formData = new FormData();
-      formData.append("sheetName", CONFIG.SHEET_NAME);
-      formData.append("action", "updateSalesData");
-      formData.append("rowData", JSON.stringify(submissionData));
-
-      console.log("📄 formData to send:", {
-        sheetName: CONFIG.SHEET_NAME,
-        action: "updateSalesData",
-        rowData: submissionData
-      });
-
-      // Step 6: Submit to Google Apps Script
-      console.log("🚀 Sending request to:", CONFIG.APPS_SCRIPT_URL);
-      const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
-        method: "POST",
-        body: formData,
-      });
-
-      console.log("📬 Response status:", response.status);
-
-      const result = await response.json();
-      console.log("🧾 API Response:", result);
-
-      // Step 7: Handle response
-      if (result.success) {
-        console.log(`✅ Successfully marked ${validItems.length} task(s) as DONE`);
-        setSuccessMessage(`Successfully marked ${validItems.length} task(s) as DONE!`);
-        setTimeout(() => setSuccessMessage(""), 5000);
-
-        setSelectedAdminItems(new Set()); // Clear selection
-      } else {
-        console.error("❌ Server returned an error:", result.error);
-        throw new Error(result.error);
-      }
-
-    } catch (error) {
-      console.error("🚨 Error marking task as done:", error);
-      alert("Error marking task as done");
-
-      // Step 8: Rollback in case of error
-      if (historyId) {
-        console.warn("↩️ Reverting local state for single historyId:", historyId);
-        const historyItem = historyData.find(item => item._id === historyId);
-        setHistoryData(prev =>
-          prev.map(item =>
-            item._id === historyId
-              ? { ...item, col16: historyItem["col16"] }
-              : item
-          )
-        );
-      }
-
     }
-    finally {
-      setIsAdminSubmitting(false); // Loading stop in all cases
-    }
-  };
+
+  }
+  finally {
+    setIsAdminSubmitting(false);
+  }
+};
 
 
   // Batch mark as done button के लिए function
@@ -1067,89 +1067,86 @@ function AccountDataPage() {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-          <h1 className="text-2xl font-bold tracking-tight text-purple-700 text-center sm:text-left">
-            {showHistory ? CONFIG.PAGE_CONFIG.historyTitle : CONFIG.PAGE_CONFIG.title}
-          </h1>
-
-          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-            {/* Search Input */}
-            <div className="relative w-full sm:w-64">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-              <input
-                type="text"
-                placeholder={showHistory ? "Search history..." : "Search tasks..."}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2 border border-purple-200 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 w-full"
-              />
-            </div>
-
-            {/* Buttons Container */}
-            <div className="flex flex-col xs:flex-row gap-3 w-full sm:w-auto">
-              {/* History/Toggle Button */}
-              <button
-                onClick={toggleHistory}
-                className="rounded-md bg-gradient-to-r from-blue-500 to-indigo-600 py-2 px-4 text-white hover:from-blue-600 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center justify-center min-w-[140px]"
-              >
-                {showHistory ? (
-                  <div className="flex items-center">
-                    <ArrowLeft className="h-4 w-4 mr-1" />
-                    <span>Back to Tasks</span>
+        <div className="flex flex-col justify-between gap-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <h1 className="text-2xl font-bold tracking-tight text-purple-700 text-center sm:text-left">
+                      {showHistory ? CONFIG.PAGE_CONFIG.historyTitle : CONFIG.PAGE_CONFIG.title}
+                    </h1>
+        
+                    <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                      <div className="relative w-full sm:w-auto">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                        <input
+                          type="text"
+                          placeholder={showHistory ? "Search history..." : "Search tasks..."}
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="w-full pl-10 pr-4 py-2 border border-purple-200 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        />
+                      </div>
+        
+                      <div className="flex flex-col sm:flex-row gap-3">
+                        <button
+                          onClick={toggleHistory}
+                          className="rounded-md bg-gradient-to-r from-blue-500 to-indigo-600 py-2 px-4 text-white hover:from-blue-600 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 w-full sm:w-auto"
+                        >
+                          {showHistory ? (
+                            <div className="flex items-center justify-center">
+                              <ArrowLeft className="h-4 w-4 mr-1" />
+                              <span>Back to Tasks</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-center">
+                              <History className="h-4 w-4 mr-1" />
+                              <span>View History</span>
+                            </div>
+                          )}
+                        </button>
+        
+                        {!showHistory && (
+                          <button
+                            onClick={handleSubmit}
+                            disabled={selectedItemsCount === 0 || isSubmitting}
+                            className="rounded-md bg-gradient-to-r from-purple-600 to-pink-600 py-2 px-4 text-white hover:from-purple-700 hover:to-pink-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
+                          >
+                            {isSubmitting ? "Processing..." : `Submit Selected (${selectedItemsCount})`}
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                ) : (
-                  <div className="flex items-center">
-                    <History className="h-4 w-4 mr-1" />
-                    <span>View History</span>
-                  </div>
-                )}
-              </button>
-
-              {/* Submit Button - Only show when not in history view */}
-              {!showHistory && (
-                <button
-                  onClick={handleSubmit}
-                  disabled={selectedItemsCount === 0 || isSubmitting}
-                  className="rounded-md bg-gradient-to-r from-purple-600 to-pink-600 py-2 px-4 text-white hover:from-purple-700 hover:to-pink-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[140px]"
-                >
-                  {isSubmitting ? "Processing..." : `Submit Selected (${selectedItemsCount})`}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {successMessage && (
-          <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div className="flex items-center">
-              <CheckCircle2 className="h-5 w-5 mr-2 text-green-500 flex-shrink-0" />
-              <span className="text-sm sm:text-base">{successMessage}</span>
-            </div>
-            <button
-              onClick={() => setSuccessMessage("")}
-              className="text-green-500 hover:text-green-700 self-end sm:self-auto"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-        )}
-
-        {showHistory && userRole === "admin" && (
-          <button
-            onClick={handleBatchAdminMarkDone}
-            disabled={selectedAdminItems.size === 0 || isAdminSubmitting}
-            className="rounded-md bg-gradient-to-r from-green-600 to-teal-600 py-2 px-4 text-white hover:from-green-700 hover:to-teal-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center w-full sm:w-auto"
-          >
-            {isAdminSubmitting ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
-                Processing...
-              </>
-            ) : (
-              `Mark Selected as Done (${selectedAdminItems.size})`
-            )}
-          </button>
-        )}
+        
+                  {successMessage && (
+                    <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md flex items-center justify-between">
+                      <div className="flex items-center">
+                        <CheckCircle2 className="h-5 w-5 mr-2 text-green-500" />
+                        {successMessage}
+                      </div>
+                      <button onClick={() => setSuccessMessage("")} className="text-green-500 hover:text-green-700">
+                        <X className="h-5 w-5" />
+                      </button>
+                    </div>
+                  )}
+        
+                  {showHistory && userRole === "admin" && (
+                    <div className="flex justify-center sm:justify-start">
+                      <button
+                        onClick={handleBatchAdminMarkDone}
+                        disabled={selectedAdminItems.size === 0 || isAdminSubmitting}
+                        className="rounded-md bg-gradient-to-r from-green-600 to-teal-600 py-2 px-4 text-white hover:from-green-700 hover:to-teal-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center w-full sm:w-auto"
+                      >
+                        {isAdminSubmitting ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
+                            Processing...
+                          </>
+                        ) : (
+                          `Mark Selected as Done (${selectedAdminItems.size})`
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
 
 
         <div className="rounded-lg border border-purple-200 shadow-md bg-white overflow-hidden">

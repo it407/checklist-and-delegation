@@ -812,69 +812,86 @@ const handleFieldUpdate = useCallback(async (id, field, value) => {
   return (
     <AdminLayout>
       <div className="space-y-6">
-     <div className="flex flex-col gap-4 lg:flex-row lg:justify-between lg:items-center">
-  <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-purple-700 text-center lg:text-left">
-    {showHistory ? CONFIG.PAGE_CONFIG.historyTitle : CONFIG.PAGE_CONFIG.title}
-  </h1>
-
-  <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
-    {/* Search Input */}
-    <div className="relative w-full sm:flex-1 lg:w-64">
-      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-      <input
-        type="text"
-        placeholder={showHistory ? "Search by Task ID..." : "Search tasks..."}
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-        className="pl-10 pr-4 py-2 border border-purple-200 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 w-full text-sm sm:text-base"
-      />
-    </div>
-
-    {/* Buttons Container */}
-    <div className="flex flex-col xs:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
-      {/* History/Toggle Button */}
-      <button
-        onClick={toggleHistory}
-        className="rounded-md bg-gradient-to-r from-blue-500 to-indigo-600 py-2 px-3 sm:px-4 text-white hover:from-blue-600 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center justify-center text-sm sm:text-base flex-1 xs:flex-none"
-      >
-        {showHistory ? (
-          <div className="flex items-center">
-            <ArrowLeft className="h-4 w-4 mr-1 sm:mr-2" />
-            <span className="whitespace-nowrap">Back to Tasks</span>
-          </div>
-        ) : (
-          <div className="flex items-center">
-            <History className="h-4 w-4 mr-1 sm:mr-2" />
-            <span className="whitespace-nowrap">View History</span>
-          </div>
-        )}
-      </button>
-
-      {/* Submit Button - Only show when not in history view */}
-      {!showHistory && (
-        <button
-          onClick={handleSubmit}
-          disabled={selectedItemsCount === 0 || isSubmitting}
-          className="rounded-md bg-gradient-to-r from-purple-600 to-pink-600 py-2 px-3 sm:px-4 text-white hover:from-purple-700 hover:to-pink-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-sm sm:text-base flex-1 xs:flex-none whitespace-nowrap"
-        >
-          {isSubmitting ? "Processing..." : `Submit (${selectedItemsCount})`}
-        </button>
-      )}
-    </div>
-  </div>
-</div>
-
-{successMessage && (
-  <div className="bg-green-50 border border-green-200 text-green-700 px-3 sm:px-4 py-2 sm:py-3 rounded-md flex items-center justify-between">
-    <div className="flex items-center">
-      <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 mr-2 text-green-500" />
-      <span className="text-sm sm:text-base">{successMessage}</span>
-    </div>
-    <button onClick={() => setSuccessMessage("")} className="text-green-500 hover:text-green-700 ml-2">
-      <X className="h-4 w-4 sm:h-5 sm:w-5" />
-    </button>
-  </div>
-)}
+      <div className="flex flex-col justify-between gap-4">
+               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                 <h1 className="text-2xl font-bold tracking-tight text-purple-700 text-center sm:text-left">
+                   {showHistory ? CONFIG.PAGE_CONFIG.historyTitle : CONFIG.PAGE_CONFIG.title}
+                 </h1>
+     
+                 <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                   <div className="relative w-full sm:w-auto">
+                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                     <input
+                       type="text"
+                       placeholder={showHistory ? "Search history..." : "Search tasks..."}
+                       value={searchTerm}
+                       onChange={(e) => setSearchTerm(e.target.value)}
+                       className="w-full pl-10 pr-4 py-2 border border-purple-200 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                     />
+                   </div>
+     
+                   <div className="flex flex-col sm:flex-row gap-3">
+                     <button
+                       onClick={toggleHistory}
+                       className="rounded-md bg-gradient-to-r from-blue-500 to-indigo-600 py-2 px-4 text-white hover:from-blue-600 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 w-full sm:w-auto"
+                     >
+                       {showHistory ? (
+                         <div className="flex items-center justify-center">
+                           <ArrowLeft className="h-4 w-4 mr-1" />
+                           <span>Back to Tasks</span>
+                         </div>
+                       ) : (
+                         <div className="flex items-center justify-center">
+                           <History className="h-4 w-4 mr-1" />
+                           <span>View History</span>
+                         </div>
+                       )}
+                     </button>
+     
+                     {!showHistory && (
+                       <button
+                         onClick={handleSubmit}
+                         disabled={selectedItemsCount === 0 || isSubmitting}
+                         className="rounded-md bg-gradient-to-r from-purple-600 to-pink-600 py-2 px-4 text-white hover:from-purple-700 hover:to-pink-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
+                       >
+                         {isSubmitting ? "Processing..." : `Submit Selected (${selectedItemsCount})`}
+                       </button>
+                     )}
+                   </div>
+                 </div>
+               </div>
+     
+               {successMessage && (
+                 <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md flex items-center justify-between">
+                   <div className="flex items-center">
+                     <CheckCircle2 className="h-5 w-5 mr-2 text-green-500" />
+                     {successMessage}
+                   </div>
+                   <button onClick={() => setSuccessMessage("")} className="text-green-500 hover:text-green-700">
+                     <X className="h-5 w-5" />
+                   </button>
+                 </div>
+               )}
+     
+               {showHistory && userRole === "admin" && (
+                 <div className="flex justify-center sm:justify-start">
+                   <button
+                     onClick={handleBatchAdminMarkDone}
+                     disabled={selectedAdminItems.size === 0 || isAdminSubmitting}
+                     className="rounded-md bg-gradient-to-r from-green-600 to-teal-600 py-2 px-4 text-white hover:from-green-700 hover:to-teal-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center w-full sm:w-auto"
+                   >
+                     {isAdminSubmitting ? (
+                       <>
+                         <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
+                         Processing...
+                       </>
+                     ) : (
+                       `Mark Selected as Done (${selectedAdminItems.size})`
+                     )}
+                   </button>
+                 </div>
+               )}
+             </div>
         <div className="rounded-lg border border-purple-200 shadow-md bg-white overflow-hidden">
           <div className="bg-gradient-to-r from-purple-50 to-pink-50 border-b border-purple-100 p-4">
             <h2 className="text-purple-700 font-medium">
