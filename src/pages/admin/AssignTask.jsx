@@ -751,83 +751,214 @@ export default function AssignTask() {
   };
 
   // Update handleSubmit function to use batch submission
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setIsSubmitting(true);
+  // const handleSubmit = async (e) => {
+  //   e.preventDefault();
+  //   setIsSubmitting(true);
 
-    try {
-      if (generatedTasks.length === 0) {
-        alert("Please generate tasks first by clicking Preview Generated Tasks");
-        setIsSubmitting(false);
-        return;
+  //   try {
+  //     if (generatedTasks.length === 0) {
+  //       alert("Please generate tasks first by clicking Preview Generated Tasks");
+  //       setIsSubmitting(false);
+  //       return;
+  //     }
+
+  //     // Determine the sheet where tasks will be submitted
+  //     // If frequency is "one-time", use "DELEGATION" sheet, otherwise use the department sheet
+  //     const submitSheetName = formData.frequency === "one-time" ? "DELEGATION" : formData.department;
+
+  //     // Get the last task ID from the appropriate sheet
+  //     const lastTaskId = await getLastTaskId(submitSheetName);
+  //     let nextTaskId = lastTaskId + 1;
+
+  //     // Prepare all tasks data for batch insertion
+  //     const tasksData = generatedTasks.map((task, index) => ({
+  //       timestamp: formatDateToDDMMYYYY(new Date()),
+  //       taskId: (nextTaskId + index).toString(),
+  //       firm: task.department,                    // Maps to Column C
+  //       givenBy: task.givenBy,                    // Maps to Column D
+  //       name: task.doer,                          // Maps to Column E
+  //       description: task.description,            // Maps to Column F
+  //       startDate: task.dueDate,                  // Maps to Column G
+  //       freq: task.frequency,                     // Maps to Column H
+  //       enableReminders: task.enableReminders ? "Yes" : "No",    // Maps to Column I
+  //       requireAttachment: task.requireAttachment ? "Yes" : "No", // Maps to Column J
+  //       endDate: task.endDate || "",          // Maps to Column K (only for one-time tasks)
+  //       adminReminder: task.adminReminder ? "Yes" : "No" // Maps to Column P - यह नया field add करें
+  //     }));
+
+  //     console.log(`Submitting ${tasksData.length} tasks in batch to ${submitSheetName} sheet:`, tasksData);
+
+  //     // Submit all tasks in one batch to Google Sheets
+  //     const formPayload = new FormData();
+  //     formPayload.append("sheetName", submitSheetName);
+  //     formPayload.append("action", "insert");
+  //     formPayload.append("batchInsert", "true");
+  //     formPayload.append("rowData", JSON.stringify(tasksData));
+
+  //     await fetch(
+  //       "https://script.google.com/a/macros/zofffoods.com/s/AKfycbwhk-Y25IZbYn9V3hfhf3c7WvJ0v9GIDuWDBpo-YCN3gumep3h5USTFw_86cHIZ2aUs/exec",
+  //       {
+  //         method: "POST",
+  //         body: formPayload,
+  //         mode: "no-cors",
+  //       }
+  //     );
+
+  //     // Show a success message with the appropriate sheet name
+  //     alert(`Successfully submitted ${generatedTasks.length} tasks to ${submitSheetName} sheet in one batch!`);
+
+  //     // Reset form
+  //     setFormData({
+  //       department: "",
+  //       givenBy: "",
+  //       doer: "",
+  //       description: "",
+  //       frequency: "daily",
+  //       enableReminders: true,
+  //       requireAttachment: false
+  //     });
+  //     setSelectedDate(null);
+  //     setEndDate(null);
+  //     setGeneratedTasks([]);
+  //     setAccordionOpen(false);
+  //   } catch (error) {
+  //     console.error("Submission error:", error);
+  //     alert("Failed to assign tasks. Please try again.");
+  //   } finally {
+  //     setIsSubmitting(false);
+  //   }
+  // };
+
+
+  // Update handleSubmit function to use batch submission
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setIsSubmitting(true);
+
+  try {
+    if (generatedTasks.length === 0) {
+      alert("Please generate tasks first by clicking Preview Generated Tasks");
+      setIsSubmitting(false);
+      return;
+    }
+
+    // Determine the sheet where tasks will be submitted
+    // If frequency is "one-time", use "DELEGATION" sheet, otherwise use the department sheet
+    const submitSheetName = formData.frequency === "one-time" ? "DELEGATION" : formData.department;
+
+    // Get the last task ID from the appropriate sheet
+    const lastTaskId = await getLastTaskId(submitSheetName);
+    let nextTaskId = lastTaskId + 1;
+
+    // Prepare all tasks data for batch insertion
+    const tasksData = generatedTasks.map((task, index) => ({
+      timestamp: formatDateToDDMMYYYY(new Date()),
+      taskId: (nextTaskId + index).toString(),
+      firm: task.department,                    // Maps to Column C
+      givenBy: task.givenBy,                    // Maps to Column D
+      name: task.doer,                          // Maps to Column E
+      description: task.description,            // Maps to Column F
+      startDate: task.dueDate,                  // Maps to Column G
+      freq: task.frequency,                     // Maps to Column H
+      enableReminders: task.enableReminders ? "Yes" : "No",    // Maps to Column I
+      requireAttachment: task.requireAttachment ? "Yes" : "No", // Maps to Column J
+      endDate: task.endDate || "",          // Maps to Column K (only for one-time tasks)
+      adminReminder: task.adminReminder ? "Yes" : "No" // Maps to Column P
+    }));
+
+    console.log(`Submitting ${tasksData.length} tasks in batch to ${submitSheetName} sheet:`, tasksData);
+
+    // Submit all tasks in one batch to Google Sheets
+    const formPayload = new FormData();
+    formPayload.append("sheetName", submitSheetName);
+    formPayload.append("action", "insert");
+    formPayload.append("batchInsert", "true");
+    formPayload.append("rowData", JSON.stringify(tasksData));
+
+    await fetch(
+      "https://script.google.com/a/macros/zofffoods.com/s/AKfycbwhk-Y25IZbYn9V3hfhf3c7WvJ0v9GIDuWDBpo-YCN3gumep3h5USTFw_86cHIZ2aUs/exec",
+      {
+        method: "POST",
+        body: formPayload,
+        mode: "no-cors",
       }
+    );
 
-      // Determine the sheet where tasks will be submitted
-      // If frequency is "one-time", use "DELEGATION" sheet, otherwise use the department sheet
-      const submitSheetName = formData.frequency === "one-time" ? "DELEGATION" : formData.department;
+    // NEW CODE: If frequency is NOT "one-time", also submit the first task to "All Checklist Unique" sheet
+    if (formData.frequency !== "one-time" && generatedTasks.length > 0) {
+      const firstTask = generatedTasks[0];
+      
+      // Get the last task ID from "All Checklist Unique" sheet
+      const allChecklistLastTaskId = await getLastTaskId("All Checklist Unique");
+      const allChecklistNextTaskId = allChecklistLastTaskId + 1;
 
-      // Get the last task ID from the appropriate sheet
-      const lastTaskId = await getLastTaskId(submitSheetName);
-      let nextTaskId = lastTaskId + 1;
-
-      // Prepare all tasks data for batch insertion
-      const tasksData = generatedTasks.map((task, index) => ({
+      // Prepare the first task data for "All Checklist Unique" sheet
+      const allChecklistTaskData = [{
         timestamp: formatDateToDDMMYYYY(new Date()),
-        taskId: (nextTaskId + index).toString(),
-        firm: task.department,                    // Maps to Column C
-        givenBy: task.givenBy,                    // Maps to Column D
-        name: task.doer,                          // Maps to Column E
-        description: task.description,            // Maps to Column F
-        startDate: task.dueDate,                  // Maps to Column G
-        freq: task.frequency,                     // Maps to Column H
-        enableReminders: task.enableReminders ? "Yes" : "No",    // Maps to Column I
-        requireAttachment: task.requireAttachment ? "Yes" : "No", // Maps to Column J
-        endDate: task.endDate || "",          // Maps to Column K (only for one-time tasks)
-        adminReminder: task.adminReminder ? "Yes" : "No" // Maps to Column P - यह नया field add करें
-      }));
+        taskId: allChecklistNextTaskId.toString(),
+        firm: firstTask.department,
+        givenBy: firstTask.givenBy,
+        name: firstTask.doer,
+        description: firstTask.description,
+        startDate: firstTask.dueDate,
+        freq: firstTask.frequency,
+        enableReminders: firstTask.enableReminders ? "Yes" : "No",
+        requireAttachment: firstTask.requireAttachment ? "Yes" : "No",
+        endDate: "", // Empty for recurring tasks in All Checklist Unique
+        adminReminder: firstTask.adminReminder ? "Yes" : "No"
+      }];
 
-      console.log(`Submitting ${tasksData.length} tasks in batch to ${submitSheetName} sheet:`, tasksData);
+      console.log(`Also submitting first task to All Checklist Unique sheet:`, allChecklistTaskData);
 
-      // Submit all tasks in one batch to Google Sheets
-      const formPayload = new FormData();
-      formPayload.append("sheetName", submitSheetName);
-      formPayload.append("action", "insert");
-      formPayload.append("batchInsert", "true");
-      formPayload.append("rowData", JSON.stringify(tasksData));
+      // Submit the first task to "All Checklist Unique" sheet
+      const allChecklistFormPayload = new FormData();
+      allChecklistFormPayload.append("sheetName", "All Checklist Unique");
+      allChecklistFormPayload.append("action", "insert");
+      allChecklistFormPayload.append("batchInsert", "true");
+      allChecklistFormPayload.append("rowData", JSON.stringify(allChecklistTaskData));
 
       await fetch(
         "https://script.google.com/a/macros/zofffoods.com/s/AKfycbwhk-Y25IZbYn9V3hfhf3c7WvJ0v9GIDuWDBpo-YCN3gumep3h5USTFw_86cHIZ2aUs/exec",
         {
           method: "POST",
-          body: formPayload,
+          body: allChecklistFormPayload,
           mode: "no-cors",
         }
       );
-
-      // Show a success message with the appropriate sheet name
-      alert(`Successfully submitted ${generatedTasks.length} tasks to ${submitSheetName} sheet in one batch!`);
-
-      // Reset form
-      setFormData({
-        department: "",
-        givenBy: "",
-        doer: "",
-        description: "",
-        frequency: "daily",
-        enableReminders: true,
-        requireAttachment: false
-      });
-      setSelectedDate(null);
-      setEndDate(null);
-      setGeneratedTasks([]);
-      setAccordionOpen(false);
-    } catch (error) {
-      console.error("Submission error:", error);
-      alert("Failed to assign tasks. Please try again.");
-    } finally {
-      setIsSubmitting(false);
     }
-  };
+
+    // Show a success message with the appropriate sheet name
+    let successMessage = `Successfully submitted ${generatedTasks.length} tasks to ${submitSheetName} sheet in one batch!`;
+    
+    // Add message for All Checklist Unique submission
+    if (formData.frequency !== "one-time" && generatedTasks.length > 0) {
+      successMessage += ` Also submitted first task to All Checklist Unique sheet.`;
+    }
+
+    alert(successMessage);
+
+    // Reset form
+    setFormData({
+      department: "",
+      givenBy: "",
+      doer: "",
+      description: "",
+      frequency: "daily",
+      enableReminders: true,
+      requireAttachment: false,
+      adminReminder: false
+    });
+    setSelectedDate(null);
+    setEndDate(null);
+    setGeneratedTasks([]);
+    setAccordionOpen(false);
+  } catch (error) {
+    console.error("Submission error:", error);
+    alert("Failed to assign tasks. Please try again.");
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   return (
     <AdminLayout>
