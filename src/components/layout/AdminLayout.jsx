@@ -57,7 +57,7 @@ export default function AdminLayout({ children, darkMode, toggleDarkMode }) {
   { id: "nicu", name: "Data Analytics", link: "/dashboard/data/nicu" },
   { id: "hdu", name: "Process Excellence PMO", link: "/dashboard/data/hdu" },
   { id: "icu", name: "Sales", link: "/dashboard/data/icu" },
-  // { id: "crm", name: "CRM", link: "/dashboard/data/crm" },
+  { id: "crm", name: "Supply Chain Coordination", link: "/dashboard/data/crm" },
   // { id: "ea", name: "EA", link: "/dashboard/data/ea" },
   // { id: "telecaller", name: "Telecaller", link: "/dashboard/data/telecaller" },
   // { id: "aushman", name: "Aushman", link: "/dashboard/data/aushman" },
