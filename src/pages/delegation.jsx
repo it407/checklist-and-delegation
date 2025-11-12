@@ -294,165 +294,363 @@ function DelegationDataPage() {
   }, [historyData, debouncedSearchTerm, startDate, endDate, parseDateFromDDMMYYYY, userRole, username])
 
   // Optimized data fetching with parallel requests
-  const fetchSheetData = useCallback(async () => {
-    try {
-      setLoading(true)
-      setError(null)
+  // const fetchSheetData = useCallback(async () => {
+  //   try {
+  //     setLoading(true)
+  //     setError(null)
 
-      // Parallel fetch both sheets for better performance
-      const [mainResponse, historyResponse] = await Promise.all([
-        fetch(`${CONFIG.APPS_SCRIPT_URL}?sheet=${CONFIG.SOURCE_SHEET_NAME}&action=fetch`),
-        fetch(`${CONFIG.APPS_SCRIPT_URL}?sheet=${CONFIG.TARGET_SHEET_NAME}&action=fetch`).catch(() => null),
-      ])
+  //     // Parallel fetch both sheets for better performance
+  //     const [mainResponse, historyResponse] = await Promise.all([
+  //       fetch(`${CONFIG.APPS_SCRIPT_URL}?sheet=${CONFIG.SOURCE_SHEET_NAME}&action=fetch`),
+  //       fetch(`${CONFIG.APPS_SCRIPT_URL}?sheet=${CONFIG.TARGET_SHEET_NAME}&action=fetch`).catch(() => null),
+  //     ])
 
-      if (!mainResponse.ok) {
-        throw new Error(`Failed to fetch data: ${mainResponse.status}`)
-      }
+  //     if (!mainResponse.ok) {
+  //       throw new Error(`Failed to fetch data: ${mainResponse.status}`)
+  //     }
 
-      // Process main data
-      const mainText = await mainResponse.text()
-      let data
-      try {
-        data = JSON.parse(mainText)
-      } catch (parseError) {
-        const jsonStart = mainText.indexOf("{")
-        const jsonEnd = mainText.lastIndexOf("}")
-        if (jsonStart !== -1 && jsonEnd !== -1) {
-          const jsonString = mainText.substring(jsonStart, jsonEnd + 1)
-          data = JSON.parse(jsonString)
-        } else {
-          throw new Error("Invalid JSON response from server")
-        }
-      }
+  //     // Process main data
+  //     const mainText = await mainResponse.text()
+  //     let data
+  //     try {
+  //       data = JSON.parse(mainText)
+  //     } catch (parseError) {
+  //       const jsonStart = mainText.indexOf("{")
+  //       const jsonEnd = mainText.lastIndexOf("}")
+  //       if (jsonStart !== -1 && jsonEnd !== -1) {
+  //         const jsonString = mainText.substring(jsonStart, jsonEnd + 1)
+  //         data = JSON.parse(jsonString)
+  //       } else {
+  //         throw new Error("Invalid JSON response from server")
+  //       }
+  //     }
 
-      // Process history data if available
-      let processedHistoryData = []
-      if (historyResponse && historyResponse.ok) {
-        try {
-          const historyText = await historyResponse.text()
-          let historyData
-          try {
-            historyData = JSON.parse(historyText)
-          } catch (parseError) {
-            const jsonStart = historyText.indexOf("{")
-            const jsonEnd = historyText.lastIndexOf("}")
-            if (jsonStart !== -1 && jsonEnd !== -1) {
-              const jsonString = historyText.substring(jsonStart, jsonEnd + 1)
-              historyData = JSON.parse(jsonString)
-            }
-          }
+  //     // Process history data if available
+  //     let processedHistoryData = []
+  //     if (historyResponse && historyResponse.ok) {
+  //       try {
+  //         const historyText = await historyResponse.text()
+  //         let historyData
+  //         try {
+  //           historyData = JSON.parse(historyText)
+  //         } catch (parseError) {
+  //           const jsonStart = historyText.indexOf("{")
+  //           const jsonEnd = historyText.lastIndexOf("}")
+  //           if (jsonStart !== -1 && jsonEnd !== -1) {
+  //             const jsonString = historyText.substring(jsonStart, jsonEnd + 1)
+  //             historyData = JSON.parse(jsonString)
+  //           }
+  //         }
 
-          if (historyData && historyData.table && historyData.table.rows) {
-            processedHistoryData = historyData.table.rows
-              .map((row, rowIndex) => {
-                if (rowIndex === 0) return null
+  //         if (historyData && historyData.table && historyData.table.rows) {
+  //           processedHistoryData = historyData.table.rows
+  //             .map((row, rowIndex) => {
+  //               if (rowIndex === 0) return null
 
-                const rowData = {
-                  _id: Math.random().toString(36).substring(2, 15),
-                  _rowIndex: rowIndex + 2,
-                }
+  //               const rowData = {
+  //                 _id: Math.random().toString(36).substring(2, 15),
+  //                 _rowIndex: rowIndex + 2,
+  //               }
 
-                const rowValues = row.c ? row.c.map((cell) => (cell && cell.v !== undefined ? cell.v : "")) : []
+  //               const rowValues = row.c ? row.c.map((cell) => (cell && cell.v !== undefined ? cell.v : "")) : []
 
-                // Map all columns including column H (col7) for user filtering and column I (col8) for Task
-                rowData["col0"] = rowValues[0] ? parseGoogleSheetsDate(String(rowValues[0])) : ""
-                rowData["col1"] = rowValues[1] || ""
-                rowData["col2"] = rowValues[2] || ""
-                rowData["col3"] = rowValues[3] || ""
-                rowData["col4"] = rowValues[4] || ""
-                rowData["col5"] = rowValues[5] || ""
-                rowData["col6"] = rowValues[6] || ""
-                rowData["col7"] = rowValues[7] || "" // Column H - User name
-                rowData["col8"] = rowValues[8] || "" // Column I - Task
-                rowData["col9"] = rowValues[9] || "" // Column J - Given By
+  //               // Map all columns including column H (col7) for user filtering and column I (col8) for Task
+  //               rowData["col0"] = rowValues[0] ? parseGoogleSheetsDate(String(rowValues[0])) : ""
+  //               rowData["col1"] = rowValues[1] || ""
+  //               rowData["col2"] = rowValues[2] || ""
+  //               rowData["col3"] = rowValues[3] || ""
+  //               rowData["col4"] = rowValues[4] || ""
+  //               rowData["col5"] = rowValues[5] || ""
+  //               rowData["col6"] = rowValues[6] || ""
+  //               rowData["col7"] = rowValues[7] || "" // Column H - User name
+  //               rowData["col8"] = rowValues[8] || "" // Column I - Task
+  //               rowData["col9"] = rowValues[9] || "" // Column J - Given By
 
-                return rowData
-              })
-              .filter((row) => row !== null)
-          }
-        } catch (historyError) {
-          console.error("Error processing history data:", historyError)
-        }
-      }
+  //               return rowData
+  //             })
+  //             .filter((row) => row !== null)
+  //         }
+  //       } catch (historyError) {
+  //         console.error("Error processing history data:", historyError)
+  //       }
+  //     }
 
-      setHistoryData(processedHistoryData)
+  //     setHistoryData(processedHistoryData)
 
-      // Process main delegation data - REMOVED DATE FILTERING
-      const currentUsername = sessionStorage.getItem("username")
-      const currentUserRole = sessionStorage.getItem("role")
+  //     // Process main delegation data - REMOVED DATE FILTERING
+  //     const currentUsername = sessionStorage.getItem("username")
+  //     const currentUserRole = sessionStorage.getItem("role")
 
-      const pendingAccounts = []
+  //     const pendingAccounts = []
 
-      let rows = []
-      if (data.table && data.table.rows) {
-        rows = data.table.rows
-      } else if (Array.isArray(data)) {
-        rows = data
-      } else if (data.values) {
-        rows = data.values.map((row) => ({ c: row.map((val) => ({ v: val })) }))
-      }
+  //     let rows = []
+  //     if (data.table && data.table.rows) {
+  //       rows = data.table.rows
+  //     } else if (Array.isArray(data)) {
+  //       rows = data
+  //     } else if (data.values) {
+  //       rows = data.values.map((row) => ({ c: row.map((val) => ({ v: val })) }))
+  //     }
 
-      rows.forEach((row, rowIndex) => {
-        if (rowIndex === 0) return // Skip header row
+  //     rows.forEach((row, rowIndex) => {
+  //       if (rowIndex === 0) return // Skip header row
 
-        let rowValues = []
-        if (row.c) {
-          rowValues = row.c.map((cell) => (cell && cell.v !== undefined ? cell.v : ""))
-        } else if (Array.isArray(row)) {
-          rowValues = row
-        } else {
-          return
-        }
+  //       let rowValues = []
+  //       if (row.c) {
+  //         rowValues = row.c.map((cell) => (cell && cell.v !== undefined ? cell.v : ""))
+  //       } else if (Array.isArray(row)) {
+  //         rowValues = row
+  //       } else {
+  //         return
+  //       }
 
-        const assignedTo = rowValues[4] || "Unassigned"
-        const isUserMatch = currentUserRole === "admin" || assignedTo.toLowerCase() === currentUsername.toLowerCase()
-        if (!isUserMatch && currentUserRole !== "admin") return
+  //       const assignedTo = rowValues[4] || "Unassigned"
+  //       const isUserMatch = currentUserRole === "admin" || assignedTo.toLowerCase() === currentUsername.toLowerCase()
+  //       if (!isUserMatch && currentUserRole !== "admin") return
 
-        // Check conditions: Column K not null and Column L null
-        const columnKValue = rowValues[11]
-        const columnLValue = rowValues[12]
+  //       // Check conditions: Column K not null and Column L null
+  //       const columnKValue = rowValues[11]
+  //       const columnLValue = rowValues[12]
 
-        const hasColumnK = !isEmpty(columnKValue)
-        const isColumnLEmpty = isEmpty(columnLValue)
+  //       const hasColumnK = !isEmpty(columnKValue)
+  //       const isColumnLEmpty = isEmpty(columnLValue)
 
-        if (!hasColumnK || !isColumnLEmpty) {
-          return
-        }
+  //       if (!hasColumnK || !isColumnLEmpty) {
+  //         return
+  //       }
 
-        // REMOVED DATE FILTERING - Show all data regardless of date
+  //       // REMOVED DATE FILTERING - Show all data regardless of date
 
-        const googleSheetsRowIndex = rowIndex + 1
-        const taskId = rowValues[1] || ""
-        const stableId = taskId
-          ? `task_${taskId}_${googleSheetsRowIndex}`
-          : `row_${googleSheetsRowIndex}_${Math.random().toString(36).substring(2, 15)}`
+  //       const googleSheetsRowIndex = rowIndex + 1
+  //       const taskId = rowValues[1] || ""
+  //       const stableId = taskId
+  //         ? `task_${taskId}_${googleSheetsRowIndex}`
+  //         : `row_${googleSheetsRowIndex}_${Math.random().toString(36).substring(2, 15)}`
 
-        const rowData = {
-          _id: stableId,
-          _rowIndex: googleSheetsRowIndex,
-          _taskId: taskId,
-        }
+  //       const rowData = {
+  //         _id: stableId,
+  //         _rowIndex: googleSheetsRowIndex,
+  //         _taskId: taskId,
+  //       }
 
-        // Map all columns
-        for (let i = 0; i < 18; i++) {
-          if (i === 0 || i === 6 || i === 10) {
-            rowData[`col${i}`] = rowValues[i] ? parseGoogleSheetsDate(String(rowValues[i])) : ""
-          } else {
-            rowData[`col${i}`] = rowValues[i] || ""
-          }
-        }
+  //       // Map all columns
+  //       for (let i = 0; i < 18; i++) {
+  //         if (i === 0 || i === 6 || i === 10) {
+  //           rowData[`col${i}`] = rowValues[i] ? parseGoogleSheetsDate(String(rowValues[i])) : ""
+  //         } else {
+  //           rowData[`col${i}`] = rowValues[i] || ""
+  //         }
+  //       }
 
-        pendingAccounts.push(rowData)
-      })
+  //       pendingAccounts.push(rowData)
+  //     })
 
-      setAccountData(pendingAccounts)
-      setLoading(false)
-    } catch (error) {
-      console.error("Error fetching sheet data:", error)
-      setError("Failed to load account data: " + error.message)
-      setLoading(false)
+  //     setAccountData(pendingAccounts)
+  //     setLoading(false)
+  //   } catch (error) {
+  //     console.error("Error fetching sheet data:", error)
+  //     setError("Failed to load account data: " + error.message)
+  //     setLoading(false)
+  //   }
+  // }, [formatDateToDDMMYYYY, parseGoogleSheetsDate, parseDateFromDDMMYYYY, isEmpty])
+
+
+  // Optimized data fetching with parallel requests
+const fetchSheetData = useCallback(async () => {
+  try {
+    setLoading(true)
+    setError(null)
+
+    // Get user's accessible departments
+    const accessibleDepartments = getUserAccessibleDepartments()
+
+    // Parallel fetch both sheets for better performance
+    const [mainResponse, historyResponse] = await Promise.all([
+      fetch(`${CONFIG.APPS_SCRIPT_URL}?sheet=${CONFIG.SOURCE_SHEET_NAME}&action=fetch`),
+      fetch(`${CONFIG.APPS_SCRIPT_URL}?sheet=${CONFIG.TARGET_SHEET_NAME}&action=fetch`).catch(() => null),
+    ])
+
+    if (!mainResponse.ok) {
+      throw new Error(`Failed to fetch data: ${mainResponse.status}`)
     }
-  }, [formatDateToDDMMYYYY, parseGoogleSheetsDate, parseDateFromDDMMYYYY, isEmpty])
+
+    // Process main data
+    const mainText = await mainResponse.text()
+    let data
+    try {
+      data = JSON.parse(mainText)
+    } catch (parseError) {
+      const jsonStart = mainText.indexOf("{")
+      const jsonEnd = mainText.lastIndexOf("}")
+      if (jsonStart !== -1 && jsonEnd !== -1) {
+        const jsonString = mainText.substring(jsonStart, jsonEnd + 1)
+        data = JSON.parse(jsonString)
+      } else {
+        throw new Error("Invalid JSON response from server")
+      }
+    }
+
+    // Process history data if available
+    let processedHistoryData = []
+    if (historyResponse && historyResponse.ok) {
+      try {
+        const historyText = await historyResponse.text()
+        let historyData
+        try {
+          historyData = JSON.parse(historyText)
+        } catch (parseError) {
+          const jsonStart = historyText.indexOf("{")
+          const jsonEnd = historyText.lastIndexOf("}")
+          if (jsonStart !== -1 && jsonEnd !== -1) {
+            const jsonString = historyText.substring(jsonStart, jsonEnd + 1)
+            historyData = JSON.parse(jsonString)
+          }
+        }
+
+        if (historyData && historyData.table && historyData.table.rows) {
+          processedHistoryData = historyData.table.rows
+            .map((row, rowIndex) => {
+              if (rowIndex === 0) return null
+
+              const rowData = {
+                _id: Math.random().toString(36).substring(2, 15),
+                _rowIndex: rowIndex + 2,
+              }
+
+              const rowValues = row.c ? row.c.map((cell) => (cell && cell.v !== undefined ? cell.v : "")) : []
+
+              // Map all columns including column H (col7) for user filtering and column I (col8) for Task
+              rowData["col0"] = rowValues[0] ? parseGoogleSheetsDate(String(rowValues[0])) : ""
+              rowData["col1"] = rowValues[1] || ""
+              rowData["col2"] = rowValues[2] || ""
+              rowData["col3"] = rowValues[3] || ""
+              rowData["col4"] = rowValues[4] || ""
+              rowData["col5"] = rowValues[5] || ""
+              rowData["col6"] = rowValues[6] || ""
+              rowData["col7"] = rowValues[7] || "" // Column H - User name
+              rowData["col8"] = rowValues[8] || "" // Column I - Task
+              rowData["col9"] = rowValues[9] || "" // Column J - Given By
+
+              return rowData
+            })
+            .filter((row) => row !== null)
+        }
+      } catch (historyError) {
+        console.error("Error processing history data:", historyError)
+      }
+    }
+
+    setHistoryData(processedHistoryData)
+
+    // Process main delegation data - REMOVED DATE FILTERING
+    const currentUsername = sessionStorage.getItem("username")
+    const currentUserRole = sessionStorage.getItem("role")
+
+    const pendingAccounts = []
+
+    let rows = []
+    if (data.table && data.table.rows) {
+      rows = data.table.rows
+    } else if (Array.isArray(data)) {
+      rows = data
+    } else if (data.values) {
+      rows = data.values.map((row) => ({ c: row.map((val) => ({ v: val })) }))
+    }
+
+    rows.forEach((row, rowIndex) => {
+      if (rowIndex === 0) return // Skip header row
+
+      let rowValues = []
+      if (row.c) {
+        rowValues = row.c.map((cell) => (cell && cell.v !== undefined ? cell.v : ""))
+      } else if (Array.isArray(row)) {
+        rowValues = row
+      } else {
+        return
+      }
+
+      const assignedTo = rowValues[4] || "Unassigned"
+      const isUserMatch = currentUserRole === "admin" || assignedTo.toLowerCase() === currentUsername.toLowerCase()
+      if (!isUserMatch && currentUserRole !== "admin") return
+
+      // Check conditions: Column K not null and Column L null
+      const columnKValue = rowValues[11]
+      const columnLValue = rowValues[12]
+
+      const hasColumnK = !isEmpty(columnKValue)
+      const isColumnLEmpty = isEmpty(columnLValue)
+
+      if (!hasColumnK || !isColumnLEmpty) {
+        return
+      }
+
+      // NEW: Department filtering ONLY for admin users
+      if (currentUserRole === "admin" && accessibleDepartments) {
+        const departmentName = rowValues[2] || "" // Column C - Department Name
+        const departmentMatch = accessibleDepartments.some(page => 
+          departmentName.toLowerCase().includes(page) || 
+          page.includes(departmentName.toLowerCase())
+        )
+        if (!departmentMatch) return
+      }
+
+      // REMOVED DATE FILTERING - Show all data regardless of date
+
+      const googleSheetsRowIndex = rowIndex + 1
+      const taskId = rowValues[1] || ""
+      const stableId = taskId
+        ? `task_${taskId}_${googleSheetsRowIndex}`
+        : `row_${googleSheetsRowIndex}_${Math.random().toString(36).substring(2, 15)}`
+
+      const rowData = {
+        _id: stableId,
+        _rowIndex: googleSheetsRowIndex,
+        _taskId: taskId,
+      }
+
+      // Map all columns
+      for (let i = 0; i < 18; i++) {
+        if (i === 0 || i === 6 || i === 10) {
+          rowData[`col${i}`] = rowValues[i] ? parseGoogleSheetsDate(String(rowValues[i])) : ""
+        } else {
+          rowData[`col${i}`] = rowValues[i] || ""
+        }
+      }
+
+      pendingAccounts.push(rowData)
+    })
+
+    setAccountData(pendingAccounts)
+    setLoading(false)
+  } catch (error) {
+    console.error("Error fetching sheet data:", error)
+    setError("Failed to load account data: " + error.message)
+    setLoading(false)
+  }
+}, [formatDateToDDMMYYYY, parseGoogleSheetsDate, parseDateFromDDMMYYYY, isEmpty])
+
+
+const getUserAccessibleDepartments = () => {
+  const userRole = sessionStorage.getItem('role') || 'user'
+  const userPage = (sessionStorage.getItem('page') || '').toLowerCase().trim()
+  
+  // Only apply department filtering for admin users
+  if (userRole === "admin") {
+    if (userPage === 'all') {
+      return null // Show all data for admin with 'all' access
+    }
+    
+    // If admin has specific page access, return the allowed departments
+    if (userPage) {
+      const allowedPages = userPage.split(',').map(p => p.trim().toLowerCase())
+      return allowedPages
+    }
+  }
+  
+  // For regular users, return null (no department filtering - use old assignment logic)
+  return null
+}
+
 
   useEffect(() => {
     fetchSheetData()
@@ -640,9 +838,15 @@ function DelegationDataPage() {
     [filteredAccountData],
   )
 
+  // const toggleEditMode = useCallback((id) => {
+  //   setEditMode((prev) => ({ ...prev, [id]: !prev[id] }));
+  // }, []);
+
+
   const toggleEditMode = useCallback((id) => {
-    setEditMode((prev) => ({ ...prev, [id]: !prev[id] }));
-  }, []);
+  if (userRole !== "admin") return; // Only admin can edit
+  setEditMode((prev) => ({ ...prev, [id]: !prev[id] }));
+}, [userRole]);
 
   const handleImageUpload = useCallback(async (id, e) => {
     const file = e.target.files[0]
@@ -1153,150 +1357,150 @@ function DelegationDataPage() {
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-900">{account["col1"] || "—"}</div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {isSelected && editMode[account._id] ? (
-                              <select
-                                value={account["col2"] || ""}
-                                onChange={(e) => handleFieldUpdate(account._id, "col2", e.target.value)}
-                                className="border border-gray-300 rounded-md px-3 py-2 w-30"
-                              >
-                                <option value="">Select Department</option>
-                                {departments.map((dept) => (
-                                  <option key={dept} value={dept}>
-                                    {dept}
-                                  </option>
-                                ))}
-                              </select>
-                            ) : (
-                              <div
-                                className="text-sm text-gray-900 cursor-pointer hover:underline"
-                                onClick={() => isSelected && toggleEditMode(account._id)}
-                              >
-                                {account["col2"] || "—"}
-                                {isSelected && (
-                                  <span className="ml-2 text-xs text-purple-600">(Click to edit)</span>
-                                )}
-                              </div>
-                            )}
-                          </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+  {isSelected && editMode[account._id] && userRole === "admin" ? (
+    <select
+      value={account["col2"] || ""}
+      onChange={(e) => handleFieldUpdate(account._id, "col2", e.target.value)}
+      className="border border-gray-300 rounded-md px-3 py-2 w-30"
+    >
+      <option value="">Select Department</option>
+      {departments.map((dept) => (
+        <option key={dept} value={dept}>
+          {dept}
+        </option>
+      ))}
+    </select>
+  ) : (
+    <div
+      className={`text-sm text-gray-900 ${isSelected && userRole === "admin" ? "cursor-pointer hover:underline" : ""}`}
+      onClick={() => isSelected && userRole === "admin" && toggleEditMode(account._id)}
+    >
+      {account["col2"] || "—"}
+      {isSelected && userRole === "admin" && (
+        <span className="ml-2 text-xs text-purple-600">(Click to edit)</span>
+      )}
+    </div>
+  )}
+</td>
 
 
                           <td className="px-6 py-4 whitespace-nowrap">
-                            {isSelected && editMode[account._id] ? (
-                              <select
-                                value={account["col3"] || ""}
-                                onChange={(e) => handleFieldUpdate(account._id, "col3", e.target.value)}
-                                className="border border-gray-300 rounded-md px-3 py-2 w-52"
-                              >
-                                <option value="">Select Given By</option>
-                                {givenByOptions.map((givenBy) => (
-                                  <option key={givenBy} value={givenBy}>
-                                    {givenBy}
-                                  </option>
-                                ))}
-                              </select>
-                            ) : (
-                              <div
-                                className="text-sm text-gray-900 cursor-pointer hover:underline"
-                                onClick={() => isSelected && toggleEditMode(account._id)}
-                              >
-                                {account["col3"] || "—"}
-                                {isSelected && (
-                                  <span className="ml-2 text-xs text-purple-600">(Click to edit)</span>
-                                )}
-                              </div>
-                            )}
-                          </td>
+  {isSelected && editMode[account._id] && userRole === "admin" ? (
+    <select
+      value={account["col3"] || ""}
+      onChange={(e) => handleFieldUpdate(account._id, "col3", e.target.value)}
+      className="border border-gray-300 rounded-md px-3 py-2 w-52"
+    >
+      <option value="">Select Given By</option>
+      {givenByOptions.map((givenBy) => (
+        <option key={givenBy} value={givenBy}>
+          {givenBy}
+        </option>
+      ))}
+    </select>
+  ) : (
+    <div
+      className={`text-sm text-gray-900 ${isSelected && userRole === "admin" ? "cursor-pointer hover:underline" : ""}`}
+      onClick={() => isSelected && userRole === "admin" && toggleEditMode(account._id)}
+    >
+      {account["col3"] || "—"}
+      {isSelected && userRole === "admin" && (
+        <span className="ml-2 text-xs text-purple-600">(Click to edit)</span>
+      )}
+    </div>
+  )}
+</td>
 
 
                           <td className="px-6 py-4 whitespace-nowrap">
-                            {isSelected && editMode[account._id] ? (
-                              <select
-                                value={account["col4"] || ""}
-                                onChange={(e) => handleFieldUpdate(account._id, "col4", e.target.value)}
-                                className="border border-gray-300 rounded-md px-3 py-2 w-50"
-                              >
-                                <option value="">Select Name</option>
-                                {namesOptions.map((name) => (
-                                  <option key={name} value={name}>
-                                    {name}
-                                  </option>
-                                ))}
-                              </select>
-                            ) : (
-                              <div
-                                className="text-sm text-gray-900 cursor-pointer hover:underline"
-                                onClick={() => isSelected && toggleEditMode(account._id)}
-                              >
-                                {account["col4"] || "—"}
-                                {isSelected && (
-                                  <span className="ml-2 text-xs text-purple-600">(Click to edit)</span>
-                                )}
-                              </div>
-                            )}
-                          </td>
+  {isSelected && editMode[account._id] && userRole === "admin" ? (
+    <select
+      value={account["col4"] || ""}
+      onChange={(e) => handleFieldUpdate(account._id, "col4", e.target.value)}
+      className="border border-gray-300 rounded-md px-3 py-2 w-50"
+    >
+      <option value="">Select Name</option>
+      {namesOptions.map((name) => (
+        <option key={name} value={name}>
+          {name}
+        </option>
+      ))}
+    </select>
+  ) : (
+    <div
+      className={`text-sm text-gray-900 ${isSelected && userRole === "admin" ? "cursor-pointer hover:underline" : ""}`}
+      onClick={() => isSelected && userRole === "admin" && toggleEditMode(account._id)}
+    >
+      {account["col4"] || "—"}
+      {isSelected && userRole === "admin" && (
+        <span className="ml-2 text-xs text-purple-600">(Click to edit)</span>
+      )}
+    </div>
+  )}
+</td>
 
 
                           <td className="px-6 py-4">
-                            {isSelected && editMode[account._id] ? (
-                              <input
-                                type="text"
-                                value={account["col5"] || ""}
-                                onChange={(e) => handleFieldUpdate(account._id, "col5", e.target.value)}
-                                className="border border-gray-300 rounded-md px-3 py-2 w-50"
-                                placeholder="Enter task description"
-                              />
-                            ) : (
-                              <div
-                                className="text-sm text-gray-900 max-w-xs truncate cursor-pointer hover:underline"
-                                title={account["col5"]}
-                                onClick={() => isSelected && toggleEditMode(account._id)}
-                              >
-                                {account["col5"] || "—"}
-                                {isSelected && (
-                                  <span className="ml-2 text-xs text-purple-600">(Click to edit)</span>
-                                )}
-                              </div>
-                            )}
-                          </td>
+  {isSelected && editMode[account._id] && userRole === "admin" ? (
+    <input
+      type="text"
+      value={account["col5"] || ""}
+      onChange={(e) => handleFieldUpdate(account._id, "col5", e.target.value)}
+      className="border border-gray-300 rounded-md px-3 py-2 w-50"
+      placeholder="Enter task description"
+    />
+  ) : (
+    <div
+      className={`text-sm text-gray-900 max-w-xs truncate ${isSelected && userRole === "admin" ? "cursor-pointer hover:underline" : ""}`}
+      title={account["col5"]}
+      onClick={() => isSelected && userRole === "admin" && toggleEditMode(account._id)}
+    >
+      {account["col5"] || "—"}
+      {isSelected && userRole === "admin" && (
+        <span className="ml-2 text-xs text-purple-600">(Click to edit)</span>
+      )}
+    </div>
+  )}
+</td>
 
 
                           <td className={`px-6 py-4 whitespace-nowrap ${!account["col17"] ? "bg-yellow-50" : ""}`}>
-                            {isSelected && editMode[account._id] ? (
-                              <input
-                                type="date"
-                                value={(() => {
-                                  const dateStr = account["col6"];
-                                  if (dateStr && dateStr.includes("/")) {
-                                    const [day, month, year] = dateStr.split("/");
-                                    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
-                                  }
-                                  return dateStr || "";
-                                })()}
-                                onChange={(e) => {
-                                  const inputDate = e.target.value;
-                                  if (inputDate) {
-                                    const [year, month, day] = inputDate.split("-");
-                                    const formattedDate = `${day}/${month}/${year}`;
-                                    handleFieldUpdate(account._id, "col6", formattedDate);
-                                  } else {
-                                    handleFieldUpdate(account._id, "col6", "");
-                                  }
-                                }}
-                                className="border border-gray-300 rounded-md px-2 py-1 w-full"
-                              />
-                            ) : (
-                              <div
-                                className="text-sm text-gray-900 cursor-pointer hover:underline"
-                                onClick={() => isSelected && toggleEditMode(account._id)}
-                              >
-                                {formatDateForDisplay(account["col6"])}
-                                {isSelected && (
-                                  <span className="ml-2 text-xs text-purple-600">(Click to edit)</span>
-                                )}
-                              </div>
-                            )}
-                          </td>
+  {isSelected && editMode[account._id] && userRole === "admin" ? (
+    <input
+      type="date"
+      value={(() => {
+        const dateStr = account["col6"];
+        if (dateStr && dateStr.includes("/")) {
+          const [day, month, year] = dateStr.split("/");
+          return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+        }
+        return dateStr || "";
+      })()}
+      onChange={(e) => {
+        const inputDate = e.target.value;
+        if (inputDate) {
+          const [year, month, day] = inputDate.split("-");
+          const formattedDate = `${day}/${month}/${year}`;
+          handleFieldUpdate(account._id, "col6", formattedDate);
+        } else {
+          handleFieldUpdate(account._id, "col6", "");
+        }
+      }}
+      className="border border-gray-300 rounded-md px-2 py-1 w-full"
+    />
+  ) : (
+    <div
+      className={`text-sm text-gray-900 ${isSelected && userRole === "admin" ? "cursor-pointer hover:underline" : ""}`}
+      onClick={() => isSelected && userRole === "admin" && toggleEditMode(account._id)}
+    >
+      {formatDateForDisplay(account["col6"])}
+      {isSelected && userRole === "admin" && (
+        <span className="ml-2 text-xs text-purple-600">(Click to edit)</span>
+      )}
+    </div>
+  )}
+</td>
                           <td className={`px-6 py-4 whitespace-nowrap ${!account["col17"] ? "bg-green-50" : ""}`}>
                             <div className="text-sm text-gray-900">{formatDateForDisplay(account["col10"])}</div>
                           </td>
