@@ -517,7 +517,7 @@ let adminReminder;
 
 if (dashboardType === "delegation") {
   // For delegation: Column L (index 11) - "Actual" - NO CHANGE IN DELEGATION
-  completionDateValue = getCellValue(row, 11);
+  completionDateValue = getCellValue(row, 12);
   completionDate = completionDateValue ? parseGoogleSheetsDate(String(completionDateValue)) : '';
   
   // Delegation mode uses simple logic - just check Column L
