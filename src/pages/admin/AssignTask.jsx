@@ -24,47 +24,65 @@ const CalendarComponent = ({ date, onChange, onClose }) => {
     onClose();
   };
 
-  const renderDays = () => {
-    const days = [];
-    const daysInMonth = getDaysInMonth(
+const renderDays = () => {
+  const days = [];
+  const daysInMonth = getDaysInMonth(
+    currentMonth.getFullYear(),
+    currentMonth.getMonth()
+  );
+  const firstDayOfMonth = getFirstDayOfMonth(
+    currentMonth.getFullYear(),
+    currentMonth.getMonth()
+  );
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // midnight reset
+
+  // Add empty cells
+  for (let i = 0; i < firstDayOfMonth; i++) {
+    days.push(<div key={`empty-${i}`} className="h-8 w-8"></div>);
+  }
+
+  // Add days
+  for (let day = 1; day <= daysInMonth; day++) {
+    const currentDay = new Date(
       currentMonth.getFullYear(),
-      currentMonth.getMonth()
+      currentMonth.getMonth(),
+      day
     );
-    const firstDayOfMonth = getFirstDayOfMonth(
-      currentMonth.getFullYear(),
-      currentMonth.getMonth()
+    currentDay.setHours(0, 0, 0, 0);
+
+    const isSelected =
+      date &&
+      date.getDate() === day &&
+      date.getMonth() === currentMonth.getMonth() &&
+      date.getFullYear() === currentMonth.getFullYear();
+
+    const isDisabled = currentDay < today;
+
+    days.push(
+      <button
+        key={day}
+        type="button"
+        disabled={isDisabled}
+        onClick={() => !isDisabled && handleDateClick(day)}
+        className={`h-8 w-8 rounded-full flex items-center justify-center text-sm
+          ${isDisabled
+            ? "text-gray-300 bg-gray-100 cursor-not-allowed"
+            : isSelected
+            ? "bg-purple-600 text-white"
+            : "hover:bg-purple-100 text-gray-700"
+          }
+        `}
+      >
+        {day}
+      </button>
     );
+  }
 
-    // Add empty cells for days before the first day of the month
-    for (let i = 0; i < firstDayOfMonth; i++) {
-      days.push(<div key={`empty-${i}`} className="h-8 w-8"></div>);
-    }
+  return days;
+};
 
-    // Add cells for each day of the month
-    for (let day = 1; day <= daysInMonth; day++) {
-      const isSelected =
-        date &&
-        date.getDate() === day &&
-        date.getMonth() === currentMonth.getMonth() &&
-        date.getFullYear() === currentMonth.getFullYear();
-
-      days.push(
-        <button
-          key={day}
-          type="button"
-          onClick={() => handleDateClick(day)}
-          className={`h-8 w-8 rounded-full flex items-center justify-center text-sm ${isSelected
-              ? "bg-purple-600 text-white"
-              : "hover:bg-purple-100 text-gray-700"
-            }`}
-        >
-          {day}
-        </button>
-      );
-    }
-
-    return days;
-  };
 
   const prevMonth = () => {
     setCurrentMonth(

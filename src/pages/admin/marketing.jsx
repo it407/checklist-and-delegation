@@ -16,12 +16,12 @@ const CONFIG = {
   DRIVE_FOLDER_ID: "1tsHjLO0EC1TQ2Ry542eP46Ty_9m__0x0",
 
   // Sheet name to work with
-  SHEET_NAME: "Marketing",
+  SHEET_NAME: "Brand Marketing",
 
   // Page configuration
   PAGE_CONFIG: {
-    title: "Marketing Tasks",
-    historyTitle: "Marketing Task History",
+    title: "Brand Marketing Tasks",
+    historyTitle: "Brand Marketing Task History",
     description: "Showing today, tomorrow's tasks and past due tasks",
     historyDescription: "Read-only view of completed tasks with submission history",
   },

@@ -1,4 +1,4 @@
-//EA Tasks Page
+//PICU Tasks Page
 "use client"
 
 import { useState, useEffect, useCallback, useMemo } from "react"
@@ -15,12 +15,12 @@ const CONFIG = {
   DRIVE_FOLDER_ID: "1tsHjLO0EC1TQ2Ry542eP46Ty_9m__0x0",
 
   // Sheet name to work with
-  SHEET_NAME: "EA",
+  SHEET_NAME: "Performance Marketing",
 
   // Page configuration
   PAGE_CONFIG: {
-    title: "EA Tasks",
-    historyTitle: "EA Task History",
+    title: "Performance Marketing Tasks",
+    historyTitle: "Performance Marketing Task History",
     description: "Showing today, tomorrow's tasks and past due tasks",
     historyDescription: "Read-only view of completed tasks with submission history",
   },
@@ -44,6 +44,8 @@ function AccountDataPage() {
   const [endDate, setEndDate] = useState("")
   const [userRole, setUserRole] = useState("")
   const [username, setUsername] = useState("")
+  const [selectedAdminItems, setSelectedAdminItems] = useState(new Set());
+  const [isAdminSubmitting, setIsAdminSubmitting] = useState(false);
 
   const formatDateToDDMMYYYY = (date) => {
     const day = date.getDate().toString().padStart(2, "0")
@@ -120,22 +122,68 @@ function AccountDataPage() {
   const filteredAccountData = useMemo(() => {
     const filtered = searchTerm
       ? accountData.filter((account) =>
-          Object.values(account).some(
-            (value) => value && value.toString().toLowerCase().includes(searchTerm.toLowerCase()),
-          ),
-        )
+        Object.values(account).some(
+          (value) => value && value.toString().toLowerCase().includes(searchTerm.toLowerCase()),
+        ),
+      )
       : accountData
 
     return filtered.sort(sortDateWise)
   }, [accountData, searchTerm])
 
+  // const filteredHistoryData = useMemo(() => {
+  //   return historyData
+  //     .filter((item) => {
+  //       const matchesSearch = searchTerm
+  //         ? Object.values(item).some(
+  //             (value) => value && value.toString().toLowerCase().includes(searchTerm.toLowerCase()),
+  //           )
+  //         : true
+
+  //       const matchesMember = selectedMembers.length > 0 ? selectedMembers.includes(item["col4"]) : true
+
+  //       let matchesDateRange = true
+  //       if (startDate || endDate) {
+  //         const itemDate = parseDateFromDDMMYYYY(item["col10"])
+  //         if (!itemDate) return false
+
+  //         if (startDate) {
+  //           const startDateObj = new Date(startDate)
+  //           startDateObj.setHours(0, 0, 0, 0)
+  //           if (itemDate < startDateObj) matchesDateRange = false
+  //         }
+
+  //         if (endDate) {
+  //           const endDateObj = new Date(endDate)
+  //           endDateObj.setHours(23, 59, 59, 999)
+  //           if (itemDate > endDateObj) matchesDateRange = false
+  //         }
+  //       }
+
+  //       return matchesSearch && matchesMember && matchesDateRange
+  //     })
+  //     .sort((a, b) => {
+  //       const dateStrA = a["col10"] || ""
+  //       const dateStrB = b["col10"] || ""
+  //       const dateA = parseDateFromDDMMYYYY(dateStrA)
+  //       const dateB = parseDateFromDDMMYYYY(dateStrB)
+  //       if (!dateA) return 1
+  //       if (!dateB) return -1
+  //       return dateB.getTime() - dateA.getTime()
+  //     })
+  // }, [historyData, searchTerm, selectedMembers, startDate, endDate])
+
+
   const filteredHistoryData = useMemo(() => {
     return historyData
       .filter((item) => {
+        // नई condition: Column Q (col16) empty होना चाहिए
+        const isAdminStatusEmpty = !item["col16"] || item["col16"].toString().trim() === "";
+
         const matchesSearch = searchTerm
           ? Object.values(item).some(
-              (value) => value && value.toString().toLowerCase().includes(searchTerm.toLowerCase()),
-            )
+            (value) => value && value.toString().toLowerCase().includes(searchTerm.toLowerCase()),
+          )
           : true
 
         const matchesMember = selectedMembers.length > 0 ? selectedMembers.includes(item["col4"]) : true
@@ -158,7 +206,8 @@ function AccountDataPage() {
           }
         }
 
-        return matchesSearch && matchesMember && matchesDateRange
+        // सभी conditions include करें including नई admin status condition
+        return isAdminStatusEmpty && matchesSearch && matchesMember && matchesDateRange
       })
       .sort((a, b) => {
         const dateStrA = a["col10"] || ""
@@ -176,12 +225,12 @@ function AccountDataPage() {
     const memberStats =
       selectedMembers.length > 0
         ? selectedMembers.reduce((stats, member) => {
-            const memberTasks = historyData.filter((task) => task["col4"] === member).length
-            return {
-              ...stats,
-              [member]: memberTasks,
-            }
-          }, {})
+          const memberTasks = historyData.filter((task) => task["col4"] === member).length
+          return {
+            ...stats,
+            [member]: memberTasks,
+          }
+        }, {})
         : {}
     const filteredTotal = filteredHistoryData.length
 
@@ -209,6 +258,167 @@ function AccountDataPage() {
       return membersList.filter((member) => member.toLowerCase() === username.toLowerCase())
     }
   }
+
+  //   const fetchSheetData = useCallback(async () => {
+  //     try {
+  //       setLoading(true)
+  //       const pendingAccounts = []
+  //       const historyRows = []
+
+  //       const response = await fetch(`${CONFIG.APPS_SCRIPT_URL}?sheet=${CONFIG.SHEET_NAME}&action=fetch`)
+
+  //       if (!response.ok) {
+  //         throw new Error(`Failed to fetch data: ${response.status}`)
+  //       }
+
+  //       const text = await response.text()
+  //       let data
+
+  //       try {
+  //         data = JSON.parse(text)
+  //       } catch (parseError) {
+  //         const jsonStart = text.indexOf("{")
+  //         const jsonEnd = text.lastIndexOf("}")
+  //         if (jsonStart !== -1 && jsonEnd !== -1) {
+  //           const jsonString = text.substring(jsonStart, jsonEnd + 1)
+  //           data = JSON.parse(jsonString)
+  //         } else {
+  //           throw new Error("Invalid JSON response from server")
+  //         }
+  //       }
+
+  //       const currentUsername = sessionStorage.getItem("username")
+  //       const currentUserRole = sessionStorage.getItem("role")
+
+  //       const today = new Date()
+  //       const tomorrow = new Date(today)
+  //       tomorrow.setDate(today.getDate() + 1)
+
+  //       const todayStr = formatDateToDDMMYYYY(today)
+  //       const tomorrowStr = formatDateToDDMMYYYY(tomorrow)
+
+  //       console.log("Filtering dates:", { todayStr, tomorrowStr })
+
+  //       const membersSet = new Set()
+
+  //       let rows = []
+  //       if (data.table && data.table.rows) {
+  //         rows = data.table.rows
+  //       } else if (Array.isArray(data)) {
+  //         rows = data
+  //       } else if (data.values) {
+  //         rows = data.values.map((row) => ({ c: row.map((val) => ({ v: val })) }))
+  //       }
+
+  //       rows.forEach((row, rowIndex) => {
+  //         if (rowIndex === 0) return
+
+  //         let rowValues = []
+  //         if (row.c) {
+  //           rowValues = row.c.map((cell) => (cell && cell.v !== undefined ? cell.v : ""))
+  //         } else if (Array.isArray(row)) {
+  //           rowValues = row
+  //         } else {
+  //           console.log("Unknown row format:", row)
+  //           return
+  //         }
+
+  //         const assignedTo = rowValues[4] || "Unassigned"
+  //         membersSet.add(assignedTo)
+
+  //         const isUserMatch = currentUserRole === "admin" || assignedTo.toLowerCase() === currentUsername.toLowerCase()
+  //         if (!isUserMatch && currentUserRole !== "admin") return
+
+  //         const columnGValue = rowValues[6]
+  //         const columnKValue = rowValues[10]
+  //         const columnMValue = rowValues[12]
+
+  //         if (columnMValue && columnMValue.toString().trim() === "DONE") {
+  //           return
+  //         }
+
+  //         const rowDateStr = columnGValue ? String(columnGValue).trim() : ""
+  //         const formattedRowDate = parseGoogleSheetsDate(rowDateStr)
+
+  //         const googleSheetsRowIndex = rowIndex + 1
+
+  //         // Create stable unique ID using task ID and row index
+  //         const taskId = rowValues[1] || ""
+  //         const stableId = taskId
+  //           ? `task_${taskId}_${googleSheetsRowIndex}`
+  //           : `row_${googleSheetsRowIndex}_${Math.random().toString(36).substring(2, 15)}`
+
+  //         const rowData = {
+  //           _id: stableId,
+  //           _rowIndex: googleSheetsRowIndex,
+  //           _taskId: taskId,
+  //         }
+
+  //         const columnHeaders = [
+  //   { id: "col0", label: "Timestamp", type: "string" },
+  //   { id: "col1", label: "Task ID", type: "string" },
+  //   { id: "col2", label: "Firm", type: "string" },
+  //   { id: "col3", label: "Given By", type: "string" },
+  //   { id: "col4", label: "Name", type: "string" },
+  //   { id: "col5", label: "Task Description", type: "string" },
+  //   { id: "col6", label: "Task Start Date", type: "date" },
+  //   { id: "col7", label: "Freq", type: "string" },
+  //   { id: "col8", label: "Enable Reminders", type: "string" },
+  //   { id: "col9", label: "Require Attachment", type: "string" },
+  //   { id: "col10", label: "Actual", type: "date" },
+  //   { id: "col11", label: "Column L", type: "string" },
+  //   { id: "col12", label: "Status", type: "string" },        // Column M
+  //   { id: "col13", label: "Remarks", type: "string" },       // Column N
+  //   { id: "col14", label: "Uploaded Image", type: "string" }, // Column O
+  //   { id: "col15", label: "Admin Reminder", type: "string" }, // Column P
+  //   { id: "col16", label: "Admin Status", type: "string" }    // Column Q - NEW COLUMN
+  // ];
+
+  //         columnHeaders.forEach((header, index) => {
+  //           const cellValue = rowValues[index]
+  //           if (header.type === "date" || (cellValue && String(cellValue).startsWith("Date("))) {
+  //             rowData[header.id] = cellValue ? parseGoogleSheetsDate(String(cellValue)) : ""
+  //           } else if (header.type === "number" && cellValue !== null && cellValue !== "") {
+  //             rowData[header.id] = cellValue
+  //           } else {
+  //             rowData[header.id] = cellValue !== null ? cellValue : ""
+  //           }
+  //         })
+
+  //         console.log(`Row ${rowIndex}: Task ID = ${rowData.col1}, Google Sheets Row = ${googleSheetsRowIndex}`)
+
+  //         const hasColumnG = !isEmpty(columnGValue)
+  //         const isColumnKEmpty = isEmpty(columnKValue)
+
+  //         if (hasColumnG && isColumnKEmpty) {
+  //           const rowDate = parseDateFromDDMMYYYY(formattedRowDate)
+  //           const isToday = formattedRowDate === todayStr
+  //           const isTomorrow = formattedRowDate === tomorrowStr
+  //           const isPastDate = rowDate && rowDate <= today
+
+  //           if (isToday || isTomorrow || isPastDate) {
+  //             pendingAccounts.push(rowData)
+  //           }
+  //         } else if (hasColumnG && !isColumnKEmpty) {
+  //           const isUserHistoryMatch =
+  //             currentUserRole === "admin" || assignedTo.toLowerCase() === currentUsername.toLowerCase()
+  //           if (isUserHistoryMatch) {
+  //             historyRows.push(rowData)
+  //           }
+  //         }
+  //       })
+
+  //       setMembersList(Array.from(membersSet).sort())
+  //       setAccountData(pendingAccounts)
+  //       setHistoryData(historyRows)
+  //       setLoading(false)
+  //     } catch (error) {
+  //       console.error("Error fetching sheet data:", error)
+  //       setError("Failed to load account data: " + error.message)
+  //       setLoading(false)
+  //     }
+  //   }, [])
+
 
   const fetchSheetData = useCallback(async () => {
     try {
@@ -242,13 +452,16 @@ function AccountDataPage() {
       const currentUserRole = sessionStorage.getItem("role")
 
       const today = new Date()
+      today.setHours(0, 0, 0, 0) // Normalize to start of day
+
       const tomorrow = new Date(today)
       tomorrow.setDate(today.getDate() + 1)
 
       const todayStr = formatDateToDDMMYYYY(today)
       const tomorrowStr = formatDateToDDMMYYYY(tomorrow)
 
-      console.log("Filtering dates:", { todayStr, tomorrowStr })
+      console.log("🟢 TODAY'S DATE:", todayStr)
+      console.log("🔵 TOMORROW'S DATE:", tomorrowStr)
 
       const membersSet = new Set()
 
@@ -260,6 +473,8 @@ function AccountDataPage() {
       } else if (data.values) {
         rows = data.values.map((row) => ({ c: row.map((val) => ({ v: val })) }))
       }
+
+      console.log(`📊 Total rows from API: ${rows.length}`)
 
       rows.forEach((row, rowIndex) => {
         if (rowIndex === 0) return
@@ -283,6 +498,7 @@ function AccountDataPage() {
         const columnGValue = rowValues[6]
         const columnKValue = rowValues[10]
         const columnMValue = rowValues[12]
+        const frequency = rowValues[7] || "" // Column H - Frequency
 
         if (columnMValue && columnMValue.toString().trim() === "DONE") {
           return
@@ -321,7 +537,9 @@ function AccountDataPage() {
           { id: "col12", label: "Status", type: "string" },
           { id: "col13", label: "Remarks", type: "string" },
           { id: "col14", label: "Uploaded Image", type: "string" },
-        ]
+          { id: "col15", label: "Admin Reminder", type: "string" },
+          { id: "col16", label: "Admin Status", type: "string" }
+        ];
 
         columnHeaders.forEach((header, index) => {
           const cellValue = rowValues[index]
@@ -334,19 +552,62 @@ function AccountDataPage() {
           }
         })
 
-        console.log(`Row ${rowIndex}: Task ID = ${rowData.col1}, Google Sheets Row = ${googleSheetsRowIndex}`)
+        console.log(`Row ${rowIndex}: Task ID = ${rowData.col1}, Frequency = ${frequency}, Task Date = ${formattedRowDate}`)
 
         const hasColumnG = !isEmpty(columnGValue)
         const isColumnKEmpty = isEmpty(columnKValue)
 
         if (hasColumnG && isColumnKEmpty) {
           const rowDate = parseDateFromDDMMYYYY(formattedRowDate)
-          const isToday = formattedRowDate === todayStr
-          const isTomorrow = formattedRowDate === tomorrowStr
-          const isPastDate = rowDate && rowDate <= today
 
-          if (isToday || isTomorrow || isPastDate) {
+          if (!rowDate) {
+            console.log(`❌ Invalid date for task ${rowData.col1}: ${formattedRowDate}`)
+            return // Skip if date is invalid
+          }
+
+          // Normalize row date to start of day for comparison
+          rowDate.setHours(0, 0, 0, 0)
+
+          const freqUpper = frequency.toString().toUpperCase().trim()
+
+          // Check if task should be shown based on frequency
+          let shouldShowTask = false
+
+          if (freqUpper.includes("WEEK")) {
+            // For WEEK: Show 3 days before task date
+            const threeDaysBefore = new Date(rowDate)
+            threeDaysBefore.setDate(rowDate.getDate() - 3)
+            shouldShowTask = today >= threeDaysBefore
+            console.log(`📅 WEEK: Today ${todayStr} >= ${formatDateToDDMMYYYY(threeDaysBefore)} = ${shouldShowTask}`)
+          }
+          else if (freqUpper.includes("MONTH")) {
+            // For MONTH: Show 1 week before task date
+            const oneWeekBefore = new Date(rowDate)
+            oneWeekBefore.setDate(rowDate.getDate() - 7)
+            shouldShowTask = today >= oneWeekBefore
+            console.log(`📅 MONTH: Today ${todayStr} >= ${formatDateToDDMMYYYY(oneWeekBefore)} = ${shouldShowTask}`)
+          }
+          else if (freqUpper.includes("QUARTER") || freqUpper.includes("QUATR") || freqUpper.includes("YEAR")) {
+            // For QUARTERLY and YEARLY: Show 1 month before task date
+            const oneMonthBefore = new Date(rowDate)
+            oneMonthBefore.setMonth(rowDate.getMonth() - 1)
+            shouldShowTask = today >= oneMonthBefore
+            console.log(`📅 QUARTERLY/YEARLY: Today ${todayStr} >= ${formatDateToDDMMYYYY(oneMonthBefore)} = ${shouldShowTask}`)
+          }
+          else {
+            // For DAILY or any other: Show today, tomorrow and past dates (original logic)
+            const isToday = formattedRowDate === todayStr
+            const isTomorrow = formattedRowDate === tomorrowStr
+            const isPastDate = rowDate <= today
+            shouldShowTask = isToday || isTomorrow || isPastDate
+            console.log(`📅 DAILY/OTHER: Today=${isToday}, Tomorrow=${isTomorrow}, Past=${isPastDate} = ${shouldShowTask}`)
+          }
+
+          if (shouldShowTask) {
+            console.log(`✅ ADDING to pending: ${rowData.col1} (${frequency})`)
             pendingAccounts.push(rowData)
+          } else {
+            console.log(`❌ SKIPPING task: ${rowData.col1} (${frequency})`)
           }
         } else if (hasColumnG && !isColumnKEmpty) {
           const isUserHistoryMatch =
@@ -357,12 +618,18 @@ function AccountDataPage() {
         }
       })
 
+      console.log(`\n📈 FINAL RESULTS:`, {
+        pendingTasks: pendingAccounts.length,
+        historyTasks: historyRows.length,
+        members: Array.from(membersSet)
+      })
+
       setMembersList(Array.from(membersSet).sort())
       setAccountData(pendingAccounts)
       setHistoryData(historyRows)
       setLoading(false)
     } catch (error) {
-      console.error("Error fetching sheet data:", error)
+      console.error("❌ Error fetching sheet data:", error)
       setError("Failed to load account data: " + error.message)
       setLoading(false)
     }
@@ -614,69 +881,273 @@ function AccountDataPage() {
     }
   }
 
+
+
+  const handleAdminSelectAllItems = useCallback(
+    (e) => {
+      if (userRole !== "admin") return;
+
+      e.stopPropagation();
+      const checked = e.target.checked;
+
+      if (checked) {
+        // सिर्फ वो items select करें जिनमें Admin Reminder "YES" है और DONE नहीं हैं
+        const adminItems = filteredHistoryData.filter(item =>
+          item["col15"] && item["col15"].toString().toUpperCase() === "YES" &&
+          !(item["col16"] && item["col16"].toString().toUpperCase() === "DONE")
+        ).map(item => item._id);
+
+        setSelectedAdminItems(new Set(adminItems));
+      } else {
+        setSelectedAdminItems(new Set());
+      }
+    },
+    [filteredHistoryData, userRole]
+  );
+
+  const handleAdminCheckboxClick = useCallback(
+    (e, id) => {
+      if (userRole !== "admin") return;
+
+      e.stopPropagation();
+      const isChecked = e.target.checked;
+
+      setSelectedAdminItems((prev) => {
+        const newSelected = new Set(prev);
+        if (isChecked) {
+          newSelected.add(id);
+        } else {
+          newSelected.delete(id);
+        }
+        return newSelected;
+      });
+    },
+    [userRole]
+  );
+
+  // Updated handleAdminMarkDone function - Column Q (col16) में store करेगा
+ // Updated handleAdminMarkDone function - Column Q (col16) में store करेगा
+const handleAdminMarkDone = async (historyId = null) => {
+  console.log("🟡 handleAdminMarkDone called | historyId:", historyId);
+
+  if (userRole !== "admin") {
+    alert("Only admin can mark tasks as done");
+    console.warn("❌ Unauthorized: userRole =", userRole);
+    setIsAdminSubmitting(false);
+    return;
+  }
+
+  try {
+    // Step 1: Determine which items to process
+    const itemsToProcess = historyId
+      ? [historyData.find(item => item._id === historyId)]
+      : Array.from(selectedAdminItems).map(id => historyData.find(item => item._id === id));
+
+    console.log("📦 itemsToProcess:", itemsToProcess);
+
+    // Step 2: Filter valid items
+    const validItems = itemsToProcess.filter(item =>
+      item &&
+      item["col15"] &&
+      item["col15"].toString().toUpperCase() === "YES" &&
+      !(item["col16"] && item["col16"].toString().toUpperCase() === "DONE")
+    );
+
+    console.log("✅ validItems:", validItems);
+
+    if (validItems.length === 0) {
+      alert("No valid items to mark as done");
+      console.warn("⚠️ No valid items found for marking DONE");
+      return;
+    }
+
+    // Step 3: Confirm with admin
+    const confirmed = window.confirm(
+      `Are you sure you want to mark ${validItems.length} task(s) as DONE?`
+    );
+    if (!confirmed) {
+      console.info("🟢 Admin cancelled confirmation");
+      return;
+    }
+
+    // Step 4: Update local state immediately
+    setHistoryData(prev =>
+      prev.map(item => {
+        const shouldUpdate = validItems.some(validItem => validItem._id === item._id);
+        return shouldUpdate ? { ...item, col16: "DONE" } : item;
+      })
+    );
+
+    console.log("🟩 Local state updated (col16 = DONE) for:", validItems.map(v => v._id));
+
+    // Step 5: Prepare submission data for Google Sheets
+    const submissionData = validItems.map(item => ({
+      taskId: item["col1"],
+      rowIndex: item._rowIndex,
+      adminStatus: "DONE"  // Change from doneStatus to adminStatus
+    }));
+
+    console.log("📤 submissionData:", submissionData);
+
+    const formData = new FormData();
+    formData.append("sheetName", CONFIG.SHEET_NAME);
+    formData.append("action", "updateAdminStatus");  // Change action name
+    formData.append("rowData", JSON.stringify(submissionData));
+
+    console.log("📄 formData to send:", {
+      sheetName: CONFIG.SHEET_NAME,
+      action: "updateAdminStatus",
+      rowData: submissionData
+    });
+
+    // Step 6: Submit to Google Apps Script
+    console.log("🚀 Sending request to:", CONFIG.APPS_SCRIPT_URL);
+    const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
+      method: "POST",
+      body: formData,
+    });
+
+    console.log("📬 Response status:", response.status);
+
+    const result = await response.json();
+    console.log("🧾 API Response:", result);
+
+    // Step 7: Handle response
+    if (result.success) {
+      console.log(`✅ Successfully marked ${validItems.length} task(s) as DONE`);
+      setSuccessMessage(`Successfully marked ${validItems.length} task(s) as DONE!`);
+      setTimeout(() => setSuccessMessage(""), 5000);
+
+      setSelectedAdminItems(new Set()); // Clear selection
+    } else {
+      console.error("❌ Server returned an error:", result.error);
+      throw new Error(result.error);
+    }
+
+  } catch (error) {
+    console.error("🚨 Error marking task as done:", error);
+    alert("Error marking task as done");
+
+    // Step 8: Rollback in case of error
+    if (historyId) {
+      console.warn("↩️ Reverting local state for single historyId:", historyId);
+      const historyItem = historyData.find(item => item._id === historyId);
+      setHistoryData(prev =>
+        prev.map(item =>
+          item._id === historyId
+            ? { ...item, col16: historyItem["col16"] }
+            : item
+        )
+      );
+    }
+
+  }
+  finally {
+    setIsAdminSubmitting(false);
+  }
+};
+
+
+  // Batch mark as done button के लिए function
+  const handleBatchAdminMarkDone = () => {
+    if (selectedAdminItems.size === 0) {
+      alert("Please select at least one item to mark as done");
+      return;
+    }
+    setIsAdminSubmitting(true); // Loading start
+    handleAdminMarkDone(); // Without specific ID for batch processing
+  };
+
+
+
+
   // Convert Set to Array for display
   const selectedItemsCount = selectedItems.size
 
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-          <h1 className="text-2xl font-bold tracking-tight text-purple-700">
-            {showHistory ? CONFIG.PAGE_CONFIG.historyTitle : CONFIG.PAGE_CONFIG.title}
-          </h1>
+        <div className="flex flex-col justify-between gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <h1 className="text-2xl font-bold tracking-tight text-purple-700 text-center sm:text-left">
+              {showHistory ? CONFIG.PAGE_CONFIG.historyTitle : CONFIG.PAGE_CONFIG.title}
+            </h1>
 
-          <div className="flex space-x-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-              <input
-                type="text"
-                placeholder={showHistory ? "Search history..." : "Search tasks..."}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2 border border-purple-200 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-              />
+            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+              <div className="relative w-full sm:w-auto">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                <input
+                  type="text"
+                  placeholder={showHistory ? "Search history..." : "Search tasks..."}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-purple-200 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={toggleHistory}
+                  className="rounded-md bg-gradient-to-r from-blue-500 to-indigo-600 py-2 px-4 text-white hover:from-blue-600 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 w-full sm:w-auto"
+                >
+                  {showHistory ? (
+                    <div className="flex items-center justify-center">
+                      <ArrowLeft className="h-4 w-4 mr-1" />
+                      <span>Back to Tasks</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center">
+                      <History className="h-4 w-4 mr-1" />
+                      <span>View History</span>
+                    </div>
+                  )}
+                </button>
+
+                {!showHistory && (
+                  <button
+                    onClick={handleSubmit}
+                    disabled={selectedItemsCount === 0 || isSubmitting}
+                    className="rounded-md bg-gradient-to-r from-purple-600 to-pink-600 py-2 px-4 text-white hover:from-purple-700 hover:to-pink-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
+                  >
+                    {isSubmitting ? "Processing..." : `Submit Selected (${selectedItemsCount})`}
+                  </button>
+                )}
+              </div>
             </div>
-
-            <button
-              onClick={toggleHistory}
-              className="rounded-md bg-gradient-to-r from-blue-500 to-indigo-600 py-2 px-4 text-white hover:from-blue-600 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-            >
-              {showHistory ? (
-                <div className="flex items-center">
-                  <ArrowLeft className="h-4 w-4 mr-1" />
-                  <span>Back to Tasks</span>
-                </div>
-              ) : (
-                <div className="flex items-center">
-                  <History className="h-4 w-4 mr-1" />
-                  <span>View History</span>
-                </div>
-              )}
-            </button>
-
-            {!showHistory && (
-              <button
-                onClick={handleSubmit}
-                disabled={selectedItemsCount === 0 || isSubmitting}
-                className="rounded-md bg-gradient-to-r from-purple-600 to-pink-600 py-2 px-4 text-white hover:from-purple-700 hover:to-pink-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isSubmitting ? "Processing..." : `Submit Selected (${selectedItemsCount})`}
-              </button>
-            )}
           </div>
+
+          {successMessage && (
+            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md flex items-center justify-between">
+              <div className="flex items-center">
+                <CheckCircle2 className="h-5 w-5 mr-2 text-green-500" />
+                {successMessage}
+              </div>
+              <button onClick={() => setSuccessMessage("")} className="text-green-500 hover:text-green-700">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          )}
+
+          {showHistory && userRole === "admin" && (
+            <div className="flex justify-center sm:justify-start">
+              <button
+                onClick={handleBatchAdminMarkDone}
+                disabled={selectedAdminItems.size === 0 || isAdminSubmitting}
+                className="rounded-md bg-gradient-to-r from-green-600 to-teal-600 py-2 px-4 text-white hover:from-green-700 hover:to-teal-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center w-full sm:w-auto"
+              >
+                {isAdminSubmitting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
+                    Processing...
+                  </>
+                ) : (
+                  `Mark Selected as Done (${selectedAdminItems.size})`
+                )}
+              </button>
+            </div>
+          )}
         </div>
 
-        {successMessage && (
-          <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md flex items-center justify-between">
-            <div className="flex items-center">
-              <CheckCircle2 className="h-5 w-5 mr-2 text-green-500" />
-              {successMessage}
-            </div>
-            <button onClick={() => setSuccessMessage("")} className="text-green-500 hover:text-green-700">
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-        )}
 
         <div className="rounded-lg border border-purple-200 shadow-md bg-white overflow-hidden">
           <div className="bg-gradient-to-r from-purple-50 to-pink-50 border-b border-purple-100 p-4">
@@ -809,6 +1280,24 @@ function AccountDataPage() {
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                          checked={filteredHistoryData.length > 0 &&
+                            filteredHistoryData.filter(item =>
+                              item["col15"] && item["col15"].toString().toUpperCase() === "YES" &&
+                              !(item["col16"] && item["col16"].toString().toUpperCase() === "DONE")
+                            ).length > 0 &&
+                            filteredHistoryData.filter(item =>
+                              item["col15"] && item["col15"].toString().toUpperCase() === "YES" &&
+                              !(item["col16"] && item["col16"].toString().toUpperCase() === "DONE")
+                            ).every(item => selectedAdminItems.has(item._id))
+                          }
+                          onChange={handleAdminSelectAllItems}
+                          disabled={userRole !== "admin"}
+                        />
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Task ID
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -851,82 +1340,106 @@ function AccountDataPage() {
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {filteredHistoryData.length > 0 ? (
-                      filteredHistoryData.map((history) => (
-                        <tr key={history._id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900">{history["col1"] || "—"}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{history["col2"] || "—"}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{history["col3"] || "—"}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{history["col4"] || "—"}</div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="text-sm text-gray-900 max-w-xs" title={history["col5"]}>
-                              {history["col5"] || "—"}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap bg-yellow-50">
-                            <div className="text-sm text-gray-900">{history["col6"] || "—"}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{history["col7"] || "—"}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{history["col8"] || "—"}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{history["col9"] || "—"}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap bg-green-50">
-                            <div className="text-sm font-medium text-gray-900">{history["col10"] || "—"}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap bg-blue-50">
-                            <span
-                              className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                history["col12"] === "Yes"
+                      filteredHistoryData.map((history) => {
+                        const requiresAdminAction = history["col15"] && history["col15"].toString().toUpperCase() === "YES";
+                        const isDone = history["col16"] && history["col16"].toString().toUpperCase() === "DONE"; // Column Q check करें
+                        const isSelected = selectedAdminItems.has(history._id);
+
+                        return (
+                          <tr key={history._id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              {requiresAdminAction ? (
+                                <input
+                                  type="checkbox"
+                                  className="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                                  checked={isSelected}
+                                  onChange={(e) => handleAdminCheckboxClick(e, history._id)}
+                                  disabled={isDone || userRole !== "admin"}
+                                />
+                              ) : (
+                                <input
+                                  type="checkbox"
+                                  className="h-4 w-4 rounded border-gray-300 text-gray-400"
+                                  checked={true}
+                                  disabled={true}
+                                />
+                              )}
+                            </td>
+
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm font-medium text-gray-900">{history["col1"] || "—"}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-900">{history["col2"] || "—"}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-900">{history["col3"] || "—"}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-900">{history["col4"] || "—"}</div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="text-sm text-gray-900 max-w-xs" title={history["col5"]}>
+                                {history["col5"] || "—"}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap bg-yellow-50">
+                              <div className="text-sm text-gray-900">{history["col6"] || "—"}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-900">{history["col7"] || "—"}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-900">{history["col8"] || "—"}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-900">{history["col9"] || "—"}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap bg-green-50">
+                              <div className="text-sm font-medium text-gray-900">{history["col10"] || "—"}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap bg-blue-50">
+                              <span
+                                className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${history["col12"] === "Yes"
                                   ? "bg-green-100 text-green-800"
                                   : history["col12"] === "No"
                                     ? "bg-red-100 text-red-800"
                                     : "bg-gray-100 text-gray-800"
-                              }`}
-                            >
-                              {history["col12"] || "—"}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 bg-purple-50">
-                            <div className="text-sm text-gray-900 max-w-xs" title={history["col13"]}>
-                              {history["col13"] || "—"}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {history["col14"] ? (
-                              <a
-                                href={history["col14"]}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-blue-600 hover:text-blue-800 underline flex items-center"
+                                  }`}
                               >
-                                <img
-                                  src={history["col14"] || "/placeholder.svg?height=32&width=32"}
-                                  alt="Attachment"
-                                  className="h-8 w-8 object-cover rounded-md mr-2"
-                                />
-                                View
-                              </a>
-                            ) : (
-                              <span className="text-gray-400">No attachment</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))
+                                {history["col12"] || "—"}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 bg-purple-50">
+                              <div className="text-sm text-gray-900 max-w-xs" title={history["col13"]}>
+                                {history["col13"] || "—"}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              {history["col14"] ? (
+                                <a
+                                  href={history["col14"]}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 hover:text-blue-800 underline flex items-center"
+                                >
+                                  <img
+                                    src={history["col14"] || "/placeholder.svg?height=32&width=32"}
+                                    alt="Attachment"
+                                    className="h-8 w-8 object-cover rounded-md mr-2"
+                                  />
+                                  View
+                                </a>
+                              ) : (
+                                <span className="text-gray-400">No attachment</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
                     ) : (
                       <tr>
-                        <td colSpan={13} className="px-6 py-4 text-center text-gray-500">
+                        <td colSpan={14} className="px-6 py-4 text-center text-gray-500">
                           {searchTerm || selectedMembers.length > 0 || startDate || endDate
                             ? "No historical records matching your filters"
                             : "No completed records found"}
@@ -934,6 +1447,7 @@ function AccountDataPage() {
                       </tr>
                     )}
                   </tbody>
+
                 </table>
               </div>
             </>
