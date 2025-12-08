@@ -70,6 +70,109 @@ function DelegationDataPage() {
   const [namesOptions, setNamesOptions] = useState([]);
 
 
+
+  const [leaveInputs, setLeaveInputs] = useState({})
+    const [showLeaveInput, setShowLeaveInput] = useState({})
+    const [leaveSubmitting, setLeaveSubmitting] = useState({})
+  
+  
+    const handleLeaveButtonClick = (id) => {
+      setShowLeaveInput((prev) => ({ ...prev, [id]: true }))
+      // Disable checkbox when leave button is clicked
+      setSelectedItems((prev) => {
+        const newSelected = new Set(prev)
+        newSelected.delete(id)
+        return newSelected
+      })
+    }
+  
+    const handleLeaveInputChange = (id, value) => {
+      setLeaveInputs((prev) => ({ ...prev, [id]: value }))
+    }
+  
+    const handleLeaveCancel = (id) => {
+      setShowLeaveInput((prev) => {
+        const newState = { ...prev }
+        delete newState[id]
+        return newState
+      })
+      setLeaveInputs((prev) => {
+        const newInputs = { ...prev }
+        delete newInputs[id]
+        return newInputs
+      })
+    }
+  
+    const handleLeaveSubmit = async (id) => {
+      const leaveReason = leaveInputs[id]
+      if (!leaveReason || leaveReason.trim() === "") {
+        alert("Please enter a leave reason")
+        return
+      }
+  
+      setLeaveSubmitting((prev) => ({ ...prev, [id]: true }))
+  
+      try {
+        const today = new Date()
+        const todayFormatted = formatDateToDDMMYYYY(today)
+        const item = accountData.find((account) => account._id === id)
+  
+        const formData = new FormData()
+        formData.append("sheetName", CONFIG.SOURCE_SHEET_NAME)
+        formData.append("action", "updateLeavedelegation")
+        formData.append("rowData", JSON.stringify([{
+          taskId: item["col1"],
+          rowIndex: item._rowIndex,
+          leaveReason: leaveReason,
+          // actualDate: todayFormatted,
+        }]))
+  
+        const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
+          method: "POST",
+          body: formData,
+        })
+  
+        const result = await response.json()
+        console.log("result", result)
+  
+        if (result.success) {
+          // Remove from pending tasks
+          setAccountData((prev) => prev.filter((account) => account._id !== id))
+  
+          // Clear leave input state
+          setShowLeaveInput((prev) => {
+            const newState = { ...prev }
+            delete newState[id]
+            return newState
+          })
+          setLeaveInputs((prev) => {
+            const newInputs = { ...prev }
+            delete newInputs[id]
+            return newInputs
+          })
+  
+          setSuccessMessage("Leave submitted successfully!")
+          setTimeout(() => setSuccessMessage(""), 3000)
+        } else {
+          alert("Failed to submit leave: " + result.error)
+        }
+      } catch (error) {
+        console.error("Error submitting leave:", error)
+        alert("Error submitting leave")
+      } finally {
+        setLeaveSubmitting((prev) => {
+          const newState = { ...prev }
+          delete newState[id]
+          return newState
+        })
+      }
+    }
+
+
+
+
+
+
   // Auto-save functionality
   const [autoSaveTimeouts, setAutoSaveTimeouts] = useState({});
 
@@ -583,6 +686,11 @@ function DelegationDataPage() {
         if (!hasColumnK || !isColumnLEmpty) {
           return
         }
+
+        const columnUValue = rowValues[20] // Column U is index 20 (0-based)
+  if (!isEmpty(columnUValue)) {
+    return // Skip this row if Column U has value
+  }
 
         // NEW: Department filtering ONLY for admin users
         if (currentUserRole === "admin" && accessibleDepartments) {
@@ -1334,6 +1442,9 @@ function DelegationDataPage() {
                     >
                       Upload Image
                     </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Leave
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -1607,6 +1718,50 @@ function DelegationDataPage() {
                                   disabled={!isSelected}
                                 />
                               </label>
+                            )}
+                          </td>
+                             <td className="px-6 py-4 whitespace-nowrap bg-orange-50">
+                            {showLeaveInput[account._id] ? (
+                              <div className="flex flex-col gap-2">
+                                <input
+                                  type="text"
+                                  placeholder="Enter leave reason"
+                                  value={leaveInputs[account._id] || ""}
+                                  onChange={(e) => handleLeaveInputChange(account._id, e.target.value)}
+                                  className="border border-gray-300 rounded-md px-2 py-1 text-sm w-full"
+                                  disabled={leaveSubmitting[account._id]}
+                                />
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => handleLeaveSubmit(account._id)}
+                                    disabled={leaveSubmitting[account._id]}
+                                    className="bg-green-500 text-white px-3 py-1 rounded-md text-xs hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                                  >
+                                    {leaveSubmitting[account._id] ? (
+                                      <>
+                                        <div className="animate-spin rounded-full h-3 w-3 border-t-2 border-b-2 border-white mr-1"></div>
+                                        Submitting...
+                                      </>
+                                    ) : (
+                                      "Submit Leave"
+                                    )}
+                                  </button>
+                                  <button
+                                    onClick={() => handleLeaveCancel(account._id)}
+                                    disabled={leaveSubmitting[account._id]}
+                                    className="bg-red-500 text-white px-3 py-1 rounded-md text-xs hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => handleLeaveButtonClick(account._id)}
+                                className="bg-blue-500 text-white px-3 py-1 rounded-md text-sm hover:bg-blue-600"
+                              >
+                                Leave
+                              </button>
                             )}
                           </td>
                         </tr>

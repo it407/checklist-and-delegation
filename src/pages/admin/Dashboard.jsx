@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react"
 import { BarChart3, CheckCircle2, Clock, ListTodo, Users, AlertTriangle, Filter } from 'lucide-react'
 import AdminLayout from "../../components/layout/AdminLayout.jsx"
+
+import LeaveTable from "../admin/LeaveTable.jsx"
 import {
   BarChart,
   Bar,
@@ -116,7 +118,7 @@ export default function AdminDashboard() {
       } else {
         // Task is not completed
         pendingTasks++; // All incomplete tasks count as pending
-       
+
         if (task.status === 'overdue') {
           overdueTasks++; // Only past dates (excluding today) count as overdue
         }
@@ -258,92 +260,93 @@ export default function AdminDashboard() {
   }
 
   // Function to fetch column A from master sheet
- // Function to fetch column A from master sheet
-const fetchMasterSheetColumnA = async () => {
-  try {
-    setIsFetchingMaster(true)
-    const response = await fetch(`https://docs.google.com/spreadsheets/d/1QJzboxloPluqZg15GWL3Y13ymUw_iCydxmpY7Njqtb8/gviz/tq?tqx=out:json&sheet=MASTER`)
+  // Function to fetch column A from master sheet
+  const fetchMasterSheetColumnA = async () => {
+    try {
+      setIsFetchingMaster(true)
+      const response = await fetch(`https://docs.google.com/spreadsheets/d/1QJzboxloPluqZg15GWL3Y13ymUw_iCydxmpY7Njqtb8/gviz/tq?tqx=out:json&sheet=MASTER`)
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch master sheet data: ${response.status}`)
-    }
 
-    const text = await response.text()
-    const jsonStart = text.indexOf('{')
-    const jsonEnd = text.lastIndexOf('}')
-    const jsonString = text.substring(jsonStart, jsonEnd + 1)
-    const data = JSON.parse(jsonString)
-
-    // Extract column A values (first column), skipping the first row (header)
-    const columnAValues = data.table.rows
-      .slice(1) // Skip the first row (header)
-      .map(row => {
-        // Check if row has 'c' property and first cell exists
-        if (row && row.c && row.c[0]) {
-          // Get value from first cell ('v' property)
-          return row.c[0].v || null
-        }
-        return null
-      })
-      .filter(value => value !== null && value !== '') // Remove empty values
-
-    // Get user's page access from sessionStorage
-    const userPages = (sessionStorage.getItem('page') || '').toLowerCase().trim();
-    
-    // Split by comma and trim each page, then filter out empty strings
-    const allowedPages = userPages
-      .split(',')
-      .map(page => page.trim())
-      .filter(page => page !== '');
-    
-    // Filter departments based on user's page access
-    let filteredDepartments = [...columnAValues];
-    
-    // If user has specific page access (not 'all'), filter departments
-    if (allowedPages.length > 0 && !allowedPages.includes('all')) {
-      filteredDepartments = filteredDepartments.filter(dept => {
-        const deptLower = dept.toLowerCase().trim();
-        return allowedPages.some(page => deptLower === page);
-      });
-    }
-
-    // Add default option
-    const options = ["Select Department", ...filteredDepartments]
-    setMasterSheetOptions(options)
-
-    // If no option is selected yet, set the default
-    if (!selectedMasterOption) {
-      setSelectedMasterOption(options[0])
-    }
-
-    console.log("Dashboard departments loaded", {
-      allDepartments: columnAValues,
-      filteredDepartments: filteredDepartments,
-      userPages: allowedPages
-    });
-
-    // Count active staff (column C), also skipping header row
-    let activeStaffCount = 0
-    data.table.rows.slice(1).forEach(row => {
-      const cellValue = getCellValue(row, 2) // Column C (index 2)
-      if (cellValue !== null && cellValue !== '') {
-        activeStaffCount++
+      if (!response.ok) {
+        throw new Error(`Failed to fetch master sheet data: ${response.status}`)
       }
-    })
 
-    setDepartmentData(prev => ({
-      ...prev,
-      activeStaff: activeStaffCount
-    }))
+      const text = await response.text()
+      const jsonStart = text.indexOf('{')
+      const jsonEnd = text.lastIndexOf('}')
+      const jsonString = text.substring(jsonStart, jsonEnd + 1)
+      const data = JSON.parse(jsonString)
 
-  } catch (error) {
-    console.error("Error fetching master sheet data:", error)
-    // Add fallback options in case of error
-    setMasterSheetOptions(["Error loading master data"])
-  } finally {
-    setIsFetchingMaster(false)
+      // Extract column A values (first column), skipping the first row (header)
+      const columnAValues = data.table.rows
+        .slice(1) // Skip the first row (header)
+        .map(row => {
+          // Check if row has 'c' property and first cell exists
+          if (row && row.c && row.c[0]) {
+            // Get value from first cell ('v' property)
+            return row.c[0].v || null
+          }
+          return null
+        })
+        .filter(value => value !== null && value !== '') // Remove empty values
+
+      // Get user's page access from sessionStorage
+      const userPages = (sessionStorage.getItem('page') || '').toLowerCase().trim();
+
+      // Split by comma and trim each page, then filter out empty strings
+      const allowedPages = userPages
+        .split(',')
+        .map(page => page.trim())
+        .filter(page => page !== '');
+
+      // Filter departments based on user's page access
+      let filteredDepartments = [...columnAValues];
+
+      // If user has specific page access (not 'all'), filter departments
+      if (allowedPages.length > 0 && !allowedPages.includes('all')) {
+        filteredDepartments = filteredDepartments.filter(dept => {
+          const deptLower = dept.toLowerCase().trim();
+          return allowedPages.some(page => deptLower === page);
+        });
+      }
+
+      // Add default option
+      const options = ["Select Department", ...filteredDepartments]
+      setMasterSheetOptions(options)
+
+      // If no option is selected yet, set the default
+      if (!selectedMasterOption) {
+        setSelectedMasterOption(options[0])
+      }
+
+      console.log("Dashboard departments loaded", {
+        allDepartments: columnAValues,
+        filteredDepartments: filteredDepartments,
+        userPages: allowedPages
+      });
+
+      // Count active staff (column C), also skipping header row
+      let activeStaffCount = 0
+      data.table.rows.slice(1).forEach(row => {
+        const cellValue = getCellValue(row, 2) // Column C (index 2)
+        if (cellValue !== null && cellValue !== '') {
+          activeStaffCount++
+        }
+      })
+
+      setDepartmentData(prev => ({
+        ...prev,
+        activeStaff: activeStaffCount
+      }))
+
+    } catch (error) {
+      console.error("Error fetching master sheet data:", error)
+      // Add fallback options in case of error
+      setMasterSheetOptions(["Error loading master data"])
+    } finally {
+      setIsFetchingMaster(false)
+    }
   }
-}
 
   // Modified fetch function to support both checklist and delegation
   const fetchDepartmentData = async (department) => {
@@ -357,10 +360,10 @@ const fetchMasterSheetColumnA = async () => {
 
     try {
       setIsFetchingMaster(true);
-     
+
       // Debug: Log which sheet we're fetching
       console.log(`Fetching data for dashboard type: ${dashboardType}, sheet: ${sheetName}`);
-     
+
       const response = await fetch(`https://docs.google.com/spreadsheets/d/1QJzboxloPluqZg15GWL3Y13ymUw_iCydxmpY7Njqtb8/gviz/tq?tqx=out:json&sheet=${sheetName}`);
 
       if (!response.ok) {
@@ -437,13 +440,44 @@ const fetchMasterSheetColumnA = async () => {
         // Skip header row
         if (rowIndex === 0) return null;
 
+        let rowValues = [];
+        if (row.c) {
+          rowValues = row.c.map((cell) => (cell && cell.v !== undefined ? cell.v : ''));
+        } else if (Array.isArray(row)) {
+          rowValues = row;
+        } else {
+          console.log("Unknown row format:", row);
+          return null;
+        }
+
+
+
+        if (dashboardType === "checklist") {
+    // Checklist mode: Column R (index 17) - Leave Reason
+    const columnRValue = rowValues[17] || ""; // Column R - Leave Reason
+    if (columnRValue && columnRValue.toString().trim() !== "") {
+      console.log(`⏭️ Skipping checklist task: Column R has leave reason (${columnRValue})`);
+      return null; // Skip this task entirely
+    }
+  } else if (dashboardType === "delegation") {
+    // Delegation mode: Column U (index 20) - Leave Reason
+    const columnUValue = rowValues[20] || ""; // Column U - Leave Reason in delegation
+    if (columnUValue && columnUValue.toString().trim() !== "") {
+      console.log(`⏭️ Skipping delegation task: Column U has leave reason (${columnUValue})`);
+      return null; // Skip this task entirely
+    }
+  }
+
+
         // Debug: Log row processing for first few rows
         if (rowIndex <= 5) {
           console.log(`Processing row ${rowIndex + 1} (sheet row ${rowIndex + 1}):`, row);
         }
 
+
         // For non-admin users, filter by username in Column E (index 4) - "Name"
-        const assignedTo = getCellValue(row, 4) || 'Unassigned';
+        const assignedTo = rowValues[4] || 'Unassigned';
+        // const assignedTo = getCellValue(row, 4) || 'Unassigned';
         const isUserMatch = userRole === 'admin' ||
           assignedTo.toLowerCase() === username.toLowerCase();
 
@@ -459,16 +493,17 @@ const fetchMasterSheetColumnA = async () => {
         }
 
         // Check column B for valid task row - "Task ID"
-        const taskId = getCellValue(row, 1); // Column B (index 1)
-       
+        // const taskId = getCellValue(row, 1); // Column B (index 1)
+        const taskId = rowValues[1];
+
         // Debug: Log task ID for first few rows
         if (rowIndex <= 5) {
           console.log(`Row ${rowIndex + 1}: taskId="${taskId}" (type: ${typeof taskId})`);
         }
-       
+
         // More lenient validation - allow any non-empty value as task ID
         if (taskId === null || taskId === undefined || taskId === '' ||
-            (typeof taskId === 'string' && taskId.trim() === '')) {
+          (typeof taskId === 'string' && taskId.trim() === '')) {
           if (rowIndex <= 5) console.log(`Row ${rowIndex + 1}: Skipped due to empty/null task ID`);
           return null;
         }
@@ -477,7 +512,8 @@ const fetchMasterSheetColumnA = async () => {
         const taskIdStr = String(taskId).trim();
 
         // Get task start date from Column G (index 6) - "Task Start Date"
-        let taskStartDateValue = getCellValue(row, 6);
+        // let taskStartDateValue = getCellValue(row, 6);
+        let taskStartDateValue = rowValues[6];
         const taskStartDate = taskStartDateValue ? parseGoogleSheetsDate(String(taskStartDateValue)) : '';
 
         // Debug: Log task start date for first few rows
@@ -487,12 +523,12 @@ const fetchMasterSheetColumnA = async () => {
 
         // Parse task start date for comparison
         const taskStartDateObj = parseDateFromDDMMYYYY(taskStartDate);
-       
+
         // Debug: Log date validation for first few rows
         if (rowIndex <= 5) {
           console.log(`Row ${rowIndex + 1}: taskStartDateObj=${taskStartDateObj}, today=${today}, tomorrow=${tomorrow}, isValid=${!!taskStartDateObj}`);
         }
-       
+
         // For delegation mode: Include ALL tasks with valid dates (no tomorrow restriction)
         // For checklist mode: Process tasks that have a valid start date and are due up to tomorrow
         if (dashboardType === "delegation") {
@@ -511,93 +547,93 @@ const fetchMasterSheetColumnA = async () => {
 
         // Get completion data based on dashboard type
         // Get completion data - YE SECTION REPLACE KARO
-let completionDateValue, completionDate;
-let adminCompletionDateValue, adminCompletionDate;
-let adminReminder;
+        let completionDateValue, completionDate;
+        let adminCompletionDateValue, adminCompletionDate;
+        let adminReminder;
 
-if (dashboardType === "delegation") {
-  // For delegation: Column L (index 11) - "Actual" - NO CHANGE IN DELEGATION
-  completionDateValue = getCellValue(row, 12);
-  completionDate = completionDateValue ? parseGoogleSheetsDate(String(completionDateValue)) : '';
-  
-  // Delegation mode uses simple logic - just check Column L
-  adminReminder = null; // Not used in delegation
-  adminCompletionDate = ''; // Not used in delegation
-} else {
-  // For checklist: Apply new logic
-  completionDateValue = getCellValue(row, 10); // Column K
-  adminCompletionDateValue = getCellValue(row, 16); // Column Q
-  adminReminder = getCellValue(row, 15); // Column P
-  
-  completionDate = completionDateValue ? parseGoogleSheetsDate(String(completionDateValue)) : '';
-  adminCompletionDate = adminCompletionDateValue ? parseGoogleSheetsDate(String(adminCompletionDateValue)) : '';
-}
+        if (dashboardType === "delegation") {
+          // For delegation: Column L (index 11) - "Actual" - NO CHANGE IN DELEGATION
+          completionDateValue = getCellValue(row, 12);
+          completionDate = completionDateValue ? parseGoogleSheetsDate(String(completionDateValue)) : '';
 
-// Debug logs - first 10 rows
-if (rowIndex <= 10 && dashboardType === "checklist") {
-  console.log(`Row ${rowIndex + 1} CHECKLIST DEBUG:`);
-  console.log(`  - Admin Reminder (Col P): "${adminReminder}"`);
-  console.log(`  - Completion Date (Col K): "${completionDate}"`);
-  console.log(`  - Admin Completion (Col Q): "${adminCompletionDate}"`);
-}
+          // Delegation mode uses simple logic - just check Column L
+          adminReminder = null; // Not used in delegation
+          adminCompletionDate = ''; // Not used in delegation
+        } else {
+          // For checklist: Apply new logic
+          completionDateValue = getCellValue(row, 10); // Column K
+          adminCompletionDateValue = getCellValue(row, 16); // Column Q
+          adminReminder = getCellValue(row, 15); // Column P
 
-// Track staff details
-if (!staffTrackingMap.has(assignedTo)) {
-  staffTrackingMap.set(assignedTo, {
-    name: assignedTo,
-    totalTasks: 0,
-    completedTasks: 0,
-    pendingTasks: 0,
-    progress: 0
-  });
-}
+          completionDate = completionDateValue ? parseGoogleSheetsDate(String(completionDateValue)) : '';
+          adminCompletionDate = adminCompletionDateValue ? parseGoogleSheetsDate(String(adminCompletionDateValue)) : '';
+        }
 
-// Get additional task details
-const taskDescription = getCellValue(row, 5) || 'Untitled Task';
-const frequency = getCellValue(row, 7) || 'one-time';
+        // Debug logs - first 10 rows
+        if (rowIndex <= 10 && dashboardType === "checklist") {
+          console.log(`Row ${rowIndex + 1} CHECKLIST DEBUG:`);
+          console.log(`  - Admin Reminder (Col P): "${adminReminder}"`);
+          console.log(`  - Completion Date (Col K): "${completionDate}"`);
+          console.log(`  - Admin Completion (Col Q): "${adminCompletionDate}"`);
+        }
 
-// Determine task status
-let status = 'pending';
-let isCompleted = false;
+        // Track staff details
+        if (!staffTrackingMap.has(assignedTo)) {
+          staffTrackingMap.set(assignedTo, {
+            name: assignedTo,
+            totalTasks: 0,
+            completedTasks: 0,
+            pendingTasks: 0,
+            progress: 0
+          });
+        }
 
-if (dashboardType === "checklist") {
-  // CHECKLIST MODE: Apply Admin Reminder logic
-  if (adminReminder && adminReminder.toString().toLowerCase() === 'yes') {
-    // If Admin Reminder is "Yes", BOTH Column K AND Column Q must be not null
-    isCompleted = (completionDate && completionDate !== '') && (adminCompletionDate && adminCompletionDate !== '');
-    
-    if (rowIndex <= 10) {
-      console.log(`  - Admin Reminder = YES`);
-      console.log(`  - Checking: Col K="${completionDate}" AND Col Q="${adminCompletionDate}"`);
-      console.log(`  - Result: isCompleted = ${isCompleted}`);
-    }
-  } else {
-    // If Admin Reminder is "No" or empty, check ONLY Column K
-    isCompleted = (completionDate && completionDate !== '');
-    
-    if (rowIndex <= 10) {
-      console.log(`  - Admin Reminder = NO or empty`);
-      console.log(`  - Checking: Only Col K="${completionDate}"`);
-      console.log(`  - Result: isCompleted = ${isCompleted}`);
-    }
-  }
-} else {
-  // DELEGATION MODE: Simple logic - just check completion date
-  isCompleted = (completionDate && completionDate !== '');
-}
+        // Get additional task details
+        const taskDescription = getCellValue(row, 5) || 'Untitled Task';
+        const frequency = getCellValue(row, 7) || 'one-time';
 
-if (isCompleted) {
-  status = 'completed';
-} else if (isDateInPast(taskStartDate) && !isDateToday(taskStartDate)) {
-  status = 'overdue';
-} else {
-  status = 'pending';
-}
+        // Determine task status
+        let status = 'pending';
+        let isCompleted = false;
 
-if (rowIndex <= 10 && dashboardType === "checklist") {
-  console.log(`  - Final Status: ${status}`);
-  console.log(`---`);
-}
+        if (dashboardType === "checklist") {
+          // CHECKLIST MODE: Apply Admin Reminder logic
+          if (adminReminder && adminReminder.toString().toLowerCase() === 'yes') {
+            // If Admin Reminder is "Yes", BOTH Column K AND Column Q must be not null
+            isCompleted = (completionDate && completionDate !== '') && (adminCompletionDate && adminCompletionDate !== '');
+
+            if (rowIndex <= 10) {
+              console.log(`  - Admin Reminder = YES`);
+              console.log(`  - Checking: Col K="${completionDate}" AND Col Q="${adminCompletionDate}"`);
+              console.log(`  - Result: isCompleted = ${isCompleted}`);
+            }
+          } else {
+            // If Admin Reminder is "No" or empty, check ONLY Column K
+            isCompleted = (completionDate && completionDate !== '');
+
+            if (rowIndex <= 10) {
+              console.log(`  - Admin Reminder = NO or empty`);
+              console.log(`  - Checking: Only Col K="${completionDate}"`);
+              console.log(`  - Result: isCompleted = ${isCompleted}`);
+            }
+          }
+        } else {
+          // DELEGATION MODE: Simple logic - just check completion date
+          isCompleted = (completionDate && completionDate !== '');
+        }
+
+        if (isCompleted) {
+          status = 'completed';
+        } else if (isDateInPast(taskStartDate) && !isDateToday(taskStartDate)) {
+          status = 'overdue';
+        } else {
+          status = 'pending';
+        }
+
+        if (rowIndex <= 10 && dashboardType === "checklist") {
+          console.log(`  - Final Status: ${status}`);
+          console.log(`---`);
+        }
 
         // Debug: Log status determination for first few rows
         if (rowIndex <= 5) {
@@ -629,7 +665,7 @@ if (rowIndex <= 10 && dashboardType === "checklist") {
         // For delegation mode: Count all tasks regardless of date
         // For checklist mode: Only count tasks up to today for stats
         const shouldCountInStats = dashboardType === "delegation" ? true : taskStartDateObj <= today;
-       
+
         if (shouldCountInStats) {
           totalTasks++;
 
@@ -664,15 +700,15 @@ if (rowIndex <= 10 && dashboardType === "checklist") {
             // COUNTING LOGIC:
             // - Pending Tasks: ALL incomplete tasks (including overdue + today's tasks)
             // - Overdue Tasks: ONLY past dates (excluding today's date)
-           
+
             staffData.pendingTasks++;
-           
+
             if (isDateInPast(taskStartDate) && !isDateToday(taskStartDate)) {
               // Past dates (excluding today) = overdue
               overdueTasks++;
               statusData.Overdue++;
             }
-           
+
             // All incomplete tasks (including overdue + today) = pending
             pendingTasks++;
             statusData.Pending++;
@@ -903,182 +939,113 @@ if (rowIndex <= 10 && dashboardType === "checklist") {
     )
   }
 
-  // Staff Tasks Table Component
-  // const StaffTasksTable = () => {
-  //   return (
-  //     <div className="rounded-md border border-gray-200 overflow-x-auto">
-  //       <table className="min-w-full divide-y divide-gray-200">
-  //         <thead className="bg-gray-50">
-  //           <tr>
-  //             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-  //               Name
-  //             </th>
-  //             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-  //               Total Tasks
-  //             </th>
-  //             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-  //               Completed
-  //             </th>
-  //             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-  //               Pending
-  //             </th>
-  //             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-  //               Progress
-  //             </th>
-  //             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-  //               Status
-  //             </th>
-  //           </tr>
-  //         </thead>
-  //         <tbody className="bg-white divide-y divide-gray-200">
-  //           {departmentData.staffMembers.map((staff) => (
-  //             <tr key={staff.id} className="hover:bg-gray-50">
-  //               <td className="px-6 py-4 whitespace-nowrap">
-  //                 <div>
-  //                   <div className="text-sm font-medium text-gray-900">{staff.name}</div>
-  //                   <div className="text-xs text-gray-500">{staff.email}</div>
-  //                 </div>
-  //               </td>
-  //               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{staff.totalTasks}</td>
-  //               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{staff.completedTasks}</td>
-  //               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{staff.pendingTasks}</td>
-  //               <td className="px-6 py-4 whitespace-nowrap">
-  //                 <div className="flex items-center gap-2">
-  //                   <div className="w-[100px] bg-gray-200 rounded-full h-2">
-  //                     <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${staff.progress}%` }}></div>
-  //                   </div>
-  //                   <span className="text-xs text-gray-500">{staff.progress}%</span>
-  //                 </div>
-  //               </td>
-  //               <td className="px-6 py-4 whitespace-nowrap">
-  //                 {staff.progress >= 80 ? (
-  //                   <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-  //                     Excellent
-  //                   </span>
-  //                 ) : staff.progress >= 60 ? (
-  //                   <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
-  //                     Good
-  //                   </span>
-  //                 ) : (
-  //                   <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
-  //                     Needs Improvement
-  //                   </span>
-  //                 )}
-  //               </td>
-  //             </tr>
-  //           ))}
-  //         </tbody>
-  //       </table>
-  //     </div>
-  //   );
-  // };
 
 
   // Staff Tasks Table Component
-const StaffTasksTable = () => {
-  // Filter staff members to only count tasks with start dates up to today
-  const filteredStaffMembers = departmentData.staffMembers.map(staff => {
-    // Get today's date for comparison
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    // Filter tasks for this staff member that have start dates up to today
-    const staffTasks = departmentData.allTasks.filter(task => 
-      task.assignedTo === staff.name
-    );
-    
-    const tasksUpToToday = staffTasks.filter(task => {
-      const taskStartDate = parseDateFromDDMMYYYY(task.taskStartDate);
-      if (!taskStartDate) return false;
-      return taskStartDate <= today;
+  const StaffTasksTable = () => {
+    // Filter staff members to only count tasks with start dates up to today
+    const filteredStaffMembers = departmentData.staffMembers.map(staff => {
+      // Get today's date for comparison
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      // Filter tasks for this staff member that have start dates up to today
+      const staffTasks = departmentData.allTasks.filter(task =>
+        task.assignedTo === staff.name
+      );
+
+      const tasksUpToToday = staffTasks.filter(task => {
+        const taskStartDate = parseDateFromDDMMYYYY(task.taskStartDate);
+        if (!taskStartDate) return false;
+        return taskStartDate <= today;
+      });
+
+      const completedTasksUpToToday = tasksUpToToday.filter(task =>
+        task.status === 'completed'
+      ).length;
+
+      const totalTasksUpToToday = tasksUpToToday.length;
+
+      const progress = totalTasksUpToToday > 0
+        ? Math.round((completedTasksUpToToday / totalTasksUpToToday) * 100)
+        : 0;
+
+      return {
+        ...staff,
+        totalTasks: totalTasksUpToToday,
+        completedTasks: completedTasksUpToToday,
+        pendingTasks: totalTasksUpToToday - completedTasksUpToToday,
+        progress
+      };
     });
-    
-    const completedTasksUpToToday = tasksUpToToday.filter(task => 
-      task.status === 'completed'
-    ).length;
-    
-    const totalTasksUpToToday = tasksUpToToday.length;
-    
-    const progress = totalTasksUpToToday > 0
-      ? Math.round((completedTasksUpToToday / totalTasksUpToToday) * 100)
-      : 0;
 
-    return {
-      ...staff,
-      totalTasks: totalTasksUpToToday,
-      completedTasks: completedTasksUpToToday,
-      pendingTasks: totalTasksUpToToday - completedTasksUpToToday,
-      progress
-    };
-  });
-
-  return (
-    <div className="rounded-md border border-gray-200 overflow-x-auto">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
-          <tr>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Name
-            </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Total Tasks
-            </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Completed
-            </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Pending
-            </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Progress
-            </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Status
-            </th>
-          </tr>
-        </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
-          {filteredStaffMembers.map((staff) => (
-            <tr key={staff.id} className="hover:bg-gray-50">
-              <td className="px-6 py-4 whitespace-nowrap">
-                <div>
-                  <div className="text-sm font-medium text-gray-900">{staff.name}</div>
-                  <div className="text-xs text-gray-500">{staff.email}</div>
-                </div>
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{staff.totalTasks}</td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{staff.completedTasks}</td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{staff.pendingTasks}</td>
-              <td className="px-6 py-4 whitespace-nowrap">
-                <div className="flex items-center gap-2">
-                  <div className="w-[100px] bg-gray-200 rounded-full h-2">
-                    <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${staff.progress}%` }}></div>
-                  </div>
-                  <span className="text-xs text-gray-500">{staff.progress}%</span>
-                </div>
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap">
-                {staff.progress >= 80 ? (
-                  <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                    Excellent
-                  </span>
-                ) : staff.progress >= 60 ? (
-                  <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                    Good
-                  </span>
-                ) : (
-                  <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
-                    Needs Improvement
-                  </span>
-                )}
-              </td>
+    return (
+      <div className="rounded-md border border-gray-200 overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Name
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Total Tasks
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Completed
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Pending
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Progress
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Status
+              </th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-};
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {filteredStaffMembers.map((staff) => (
+              <tr key={staff.id} className="hover:bg-gray-50">
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div>
+                    <div className="text-sm font-medium text-gray-900">{staff.name}</div>
+                    <div className="text-xs text-gray-500">{staff.email}</div>
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{staff.totalTasks}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{staff.completedTasks}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{staff.pendingTasks}</td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="flex items-center gap-2">
+                    <div className="w-[100px] bg-gray-200 rounded-full h-2">
+                      <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${staff.progress}%` }}></div>
+                    </div>
+                    <span className="text-xs text-gray-500">{staff.progress}%</span>
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  {staff.progress >= 80 ? (
+                    <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                      Excellent
+                    </span>
+                  ) : staff.progress >= 60 ? (
+                    <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                      Good
+                    </span>
+                  ) : (
+                    <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                      Needs Improvement
+                    </span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
 
   return (
     <AdminLayout>
@@ -1404,6 +1371,19 @@ const StaffTasksTable = () => {
                   <StaffTasksTable />
                 </div>
               </div>
+
+              {/* Leave Data Table - NEW SECTION */}
+              <div className="rounded-lg border border-purple-200 shadow-md bg-white mt-6">
+                <div className="bg-gradient-to-r from-purple-50 to-pink-50 border-b border-purple-100 p-4">
+                  <h3 className="text-purple-700 font-medium">Leave Records</h3>
+                  <p className="text-purple-600 text-sm">
+                    Leave data for {selectedMasterOption !== "Select Department" ? selectedMasterOption : "selected department"}
+                  </p>
+                </div>
+                <div className="p-4">
+                  <LeaveTable selectedDepartment={selectedMasterOption} />
+                </div>
+              </div>
             </div>
           )}
 
@@ -1547,234 +1527,234 @@ const StaffTasksTable = () => {
             </div>
           )}
 
-      {activeTab === "staff" && (
-  <div className="rounded-lg border border-purple-200 shadow-md bg-white">
-    <div className="bg-gradient-to-r from-purple-50 to-pink-50 border-b border-purple-100 p-4">
-      <h3 className="text-purple-700 font-medium">Staff Performance</h3>
-      <p className="text-purple-600 text-sm">Task completion rates by staff member (tasks up to today only)</p>
-    </div>
-    <div className="p-4">
-      <div className="space-y-8">
-        {departmentData.staffMembers.length > 0 ? (
-          <>
-            {(() => {
-              // Get today's date for comparison
-              const today = new Date();
-              today.setHours(0, 0, 0, 0);
-              
-              // Filter staff members with tasks up to today only
-              const staffWithTasksUpToToday = departmentData.staffMembers.map(staff => {
-                // Filter tasks for this staff member that have start dates up to today
-                const staffTasks = departmentData.allTasks.filter(task => 
-                  task.assignedTo === staff.name
-                );
-                
-                const tasksUpToToday = staffTasks.filter(task => {
-                  const taskStartDate = parseDateFromDDMMYYYY(task.taskStartDate);
-                  if (!taskStartDate) return false;
-                  return taskStartDate <= today;
-                });
-                
-                const completedTasksUpToToday = tasksUpToToday.filter(task => 
-                  task.status === 'completed'
-                ).length;
-                
-                const totalTasksUpToToday = tasksUpToToday.length;
-                
-                const progress = totalTasksUpToToday > 0
-                  ? Math.round((completedTasksUpToToday / totalTasksUpToToday) * 100)
-                  : 0;
+          {activeTab === "staff" && (
+            <div className="rounded-lg border border-purple-200 shadow-md bg-white">
+              <div className="bg-gradient-to-r from-purple-50 to-pink-50 border-b border-purple-100 p-4">
+                <h3 className="text-purple-700 font-medium">Staff Performance</h3>
+                <p className="text-purple-600 text-sm">Task completion rates by staff member (tasks up to today only)</p>
+              </div>
+              <div className="p-4">
+                <div className="space-y-8">
+                  {departmentData.staffMembers.length > 0 ? (
+                    <>
+                      {(() => {
+                        // Get today's date for comparison
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
 
-                return {
-                  ...staff,
-                  totalTasks: totalTasksUpToToday,
-                  completedTasks: completedTasksUpToToday,
-                  pendingTasks: totalTasksUpToToday - completedTasksUpToToday,
-                  progress
-                };
-              }).filter(staff => staff.totalTasks > 0); // Only staff with tasks up to today
+                        // Filter staff members with tasks up to today only
+                        const staffWithTasksUpToToday = departmentData.staffMembers.map(staff => {
+                          // Filter tasks for this staff member that have start dates up to today
+                          const staffTasks = departmentData.allTasks.filter(task =>
+                            task.assignedTo === staff.name
+                          );
 
-              // Sort staff members by performance (high to low)
-              const sortedStaffMembers = [...staffWithTasksUpToToday]
-                .sort((a, b) => b.progress - a.progress);
+                          const tasksUpToToday = staffTasks.filter(task => {
+                            const taskStartDate = parseDateFromDDMMYYYY(task.taskStartDate);
+                            if (!taskStartDate) return false;
+                            return taskStartDate <= today;
+                          });
 
-              return (
-                <>
-                  {/* High performers section (70% or above) */}
-                  <div className="rounded-md border border-green-200">
-                    <div className="p-4 bg-gradient-to-r from-green-50 to-green-100 border-b border-green-200">
-                      <h3 className="text-lg font-medium text-green-700">Top Performers</h3>
-                      <p className="text-sm text-green-600">Staff with high task completion rates (tasks up to today only)</p>
-                    </div>
-                    <div className="p-4">
-                      <div className="space-y-4">
-                        {sortedStaffMembers
-                          .filter(staff => staff.progress >= 70)
-                          .map((staff) => (
-                            <div
-                              key={staff.id}
-                              className="flex items-center justify-between p-3 border border-green-100 rounded-md bg-green-50"
-                            >
-                              <div className="flex items-center gap-2">
-                                <div className="h-10 w-10 rounded-full bg-gradient-to-r from-green-500 to-teal-500 flex items-center justify-center">
-                                  <span className="text-sm font-medium text-white">{staff.name.charAt(0)}</span>
-                                </div>
-                                <div>
-                                  <p className="font-medium text-green-700">{staff.name}</p>
-                                  <p className="text-xs text-green-600">{staff.completedTasks} of {staff.totalTasks} tasks completed (up to today)</p>
+                          const completedTasksUpToToday = tasksUpToToday.filter(task =>
+                            task.status === 'completed'
+                          ).length;
+
+                          const totalTasksUpToToday = tasksUpToToday.length;
+
+                          const progress = totalTasksUpToToday > 0
+                            ? Math.round((completedTasksUpToToday / totalTasksUpToToday) * 100)
+                            : 0;
+
+                          return {
+                            ...staff,
+                            totalTasks: totalTasksUpToToday,
+                            completedTasks: completedTasksUpToToday,
+                            pendingTasks: totalTasksUpToToday - completedTasksUpToToday,
+                            progress
+                          };
+                        }).filter(staff => staff.totalTasks > 0); // Only staff with tasks up to today
+
+                        // Sort staff members by performance (high to low)
+                        const sortedStaffMembers = [...staffWithTasksUpToToday]
+                          .sort((a, b) => b.progress - a.progress);
+
+                        return (
+                          <>
+                            {/* High performers section (70% or above) */}
+                            <div className="rounded-md border border-green-200">
+                              <div className="p-4 bg-gradient-to-r from-green-50 to-green-100 border-b border-green-200">
+                                <h3 className="text-lg font-medium text-green-700">Top Performers</h3>
+                                <p className="text-sm text-green-600">Staff with high task completion rates (tasks up to today only)</p>
+                              </div>
+                              <div className="p-4">
+                                <div className="space-y-4">
+                                  {sortedStaffMembers
+                                    .filter(staff => staff.progress >= 70)
+                                    .map((staff) => (
+                                      <div
+                                        key={staff.id}
+                                        className="flex items-center justify-between p-3 border border-green-100 rounded-md bg-green-50"
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <div className="h-10 w-10 rounded-full bg-gradient-to-r from-green-500 to-teal-500 flex items-center justify-center">
+                                            <span className="text-sm font-medium text-white">{staff.name.charAt(0)}</span>
+                                          </div>
+                                          <div>
+                                            <p className="font-medium text-green-700">{staff.name}</p>
+                                            <p className="text-xs text-green-600">{staff.completedTasks} of {staff.totalTasks} tasks completed (up to today)</p>
+                                          </div>
+                                        </div>
+                                        <div className="text-lg font-bold text-green-600">{staff.progress}%</div>
+                                      </div>
+                                    ))
+                                  }
+                                  {sortedStaffMembers.filter(staff => staff.progress >= 70).length === 0 && (
+                                    <div className="text-center p-4 text-gray-500">
+                                      <p>No staff members with high completion rates found.</p>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
-                              <div className="text-lg font-bold text-green-600">{staff.progress}%</div>
                             </div>
-                          ))
-                        }
-                        {sortedStaffMembers.filter(staff => staff.progress >= 70).length === 0 && (
-                          <div className="text-center p-4 text-gray-500">
-                            <p>No staff members with high completion rates found.</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
 
-                  {/* Mid performers section (40-69%) */}
-                  <div className="rounded-md border border-yellow-200">
-                    <div className="p-4 bg-gradient-to-r from-yellow-50 to-yellow-100 border-b border-yellow-200">
-                      <h3 className="text-lg font-medium text-yellow-700">Average Performers</h3>
-                      <p className="text-sm text-yellow-600">Staff with moderate task completion rates (tasks up to today only)</p>
-                    </div>
-                    <div className="p-4">
-                      <div className="space-y-4">
-                        {sortedStaffMembers
-                          .filter(staff => staff.progress >= 40 && staff.progress < 70)
-                          .map((staff) => (
-                            <div
-                              key={staff.id}
-                              className="flex items-center justify-between p-3 border border-yellow-100 rounded-md bg-yellow-50"
-                            >
-                              <div className="flex items-center gap-2">
-                                <div className="h-10 w-10 rounded-full bg-gradient-to-r from-yellow-500 to-amber-500 flex items-center justify-center">
-                                  <span className="text-sm font-medium text-white">{staff.name.charAt(0)}</span>
-                                </div>
-                                <div>
-                                  <p className="font-medium text-yellow-700">{staff.name}</p>
-                                  <p className="text-xs text-yellow-600">{staff.completedTasks} of {staff.totalTasks} tasks completed (up to today)</p>
+                            {/* Mid performers section (40-69%) */}
+                            <div className="rounded-md border border-yellow-200">
+                              <div className="p-4 bg-gradient-to-r from-yellow-50 to-yellow-100 border-b border-yellow-200">
+                                <h3 className="text-lg font-medium text-yellow-700">Average Performers</h3>
+                                <p className="text-sm text-yellow-600">Staff with moderate task completion rates (tasks up to today only)</p>
+                              </div>
+                              <div className="p-4">
+                                <div className="space-y-4">
+                                  {sortedStaffMembers
+                                    .filter(staff => staff.progress >= 40 && staff.progress < 70)
+                                    .map((staff) => (
+                                      <div
+                                        key={staff.id}
+                                        className="flex items-center justify-between p-3 border border-yellow-100 rounded-md bg-yellow-50"
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <div className="h-10 w-10 rounded-full bg-gradient-to-r from-yellow-500 to-amber-500 flex items-center justify-center">
+                                            <span className="text-sm font-medium text-white">{staff.name.charAt(0)}</span>
+                                          </div>
+                                          <div>
+                                            <p className="font-medium text-yellow-700">{staff.name}</p>
+                                            <p className="text-xs text-yellow-600">{staff.completedTasks} of {staff.totalTasks} tasks completed (up to today)</p>
+                                          </div>
+                                        </div>
+                                        <div className="text-lg font-bold text-yellow-600">{staff.progress}%</div>
+                                      </div>
+                                    ))
+                                  }
+                                  {sortedStaffMembers.filter(staff => staff.progress >= 40 && staff.progress < 70).length === 0 && (
+                                    <div className="text-center p-4 text-gray-500">
+                                      <p>No staff members with moderate completion rates found.</p>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
-                              <div className="text-lg font-bold text-yellow-600">{staff.progress}%</div>
                             </div>
-                          ))
-                        }
-                        {sortedStaffMembers.filter(staff => staff.progress >= 40 && staff.progress < 70).length === 0 && (
-                          <div className="text-center p-4 text-gray-500">
-                            <p>No staff members with moderate completion rates found.</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
 
-                  {/* Low performers section (below 40%) */}
-                  <div className="rounded-md border border-red-200">
-                    <div className="p-4 bg-gradient-to-r from-red-50 to-red-100 border-b border-red-200">
-                      <h3 className="text-lg font-medium text-red-700">Needs Improvement</h3>
-                      <p className="text-sm text-red-600">Staff with lower task completion rates (tasks up to today only)</p>
-                    </div>
-                    <div className="p-4">
-                      <div className="space-y-4">
-                        {sortedStaffMembers
-                          .filter(staff => staff.progress < 40)
-                          .map((staff) => (
-                            <div
-                              key={staff.id}
-                              className="flex items-center justify-between p-3 border border-red-100 rounded-md bg-red-50"
-                            >
-                              <div className="flex items-center gap-2">
-                                <div className="h-10 w-10 rounded-full bg-gradient-to-r from-red-500 to-pink-500 flex items-center justify-center">
-                                  <span className="text-sm font-medium text-white">{staff.name.charAt(0)}</span>
-                                </div>
-                                <div>
-                                  <p className="font-medium text-red-700">{staff.name}</p>
-                                  <p className="text-xs text-red-600">{staff.completedTasks} of {staff.totalTasks} tasks completed (up to today)</p>
+                            {/* Low performers section (below 40%) */}
+                            <div className="rounded-md border border-red-200">
+                              <div className="p-4 bg-gradient-to-r from-red-50 to-red-100 border-b border-red-200">
+                                <h3 className="text-lg font-medium text-red-700">Needs Improvement</h3>
+                                <p className="text-sm text-red-600">Staff with lower task completion rates (tasks up to today only)</p>
+                              </div>
+                              <div className="p-4">
+                                <div className="space-y-4">
+                                  {sortedStaffMembers
+                                    .filter(staff => staff.progress < 40)
+                                    .map((staff) => (
+                                      <div
+                                        key={staff.id}
+                                        className="flex items-center justify-between p-3 border border-red-100 rounded-md bg-red-50"
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <div className="h-10 w-10 rounded-full bg-gradient-to-r from-red-500 to-pink-500 flex items-center justify-center">
+                                            <span className="text-sm font-medium text-white">{staff.name.charAt(0)}</span>
+                                          </div>
+                                          <div>
+                                            <p className="font-medium text-red-700">{staff.name}</p>
+                                            <p className="text-xs text-red-600">{staff.completedTasks} of {staff.totalTasks} tasks completed (up to today)</p>
+                                          </div>
+                                        </div>
+                                        <div className="text-lg font-bold text-red-600">{staff.progress}%</div>
+                                      </div>
+                                    ))
+                                  }
+                                  {sortedStaffMembers.filter(staff => staff.progress < 40).length === 0 && (
+                                    <div className="text-center p-4 text-gray-500">
+                                      <p>No staff members with low completion rates found.</p>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
-                              <div className="text-lg font-bold text-red-600">{staff.progress}%</div>
                             </div>
-                          ))
-                        }
-                        {sortedStaffMembers.filter(staff => staff.progress < 40).length === 0 && (
-                          <div className="text-center p-4 text-gray-500">
-                            <p>No staff members with low completion rates found.</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
 
-                  {/* No assigned tasks section (up to today) */}
-                  {(() => {
-                    const staffWithNoTasksUpToToday = departmentData.staffMembers.filter(staff => {
-                      const staffTasks = departmentData.allTasks.filter(task => 
-                        task.assignedTo === staff.name
-                      );
-                      
-                      const tasksUpToToday = staffTasks.filter(task => {
-                        const taskStartDate = parseDateFromDDMMYYYY(task.taskStartDate);
-                        if (!taskStartDate) return false;
-                        return taskStartDate <= today;
-                      });
-                      
-                      return tasksUpToToday.length === 0;
-                    });
+                            {/* No assigned tasks section (up to today) */}
+                            {(() => {
+                              const staffWithNoTasksUpToToday = departmentData.staffMembers.filter(staff => {
+                                const staffTasks = departmentData.allTasks.filter(task =>
+                                  task.assignedTo === staff.name
+                                );
 
-                    return staffWithNoTasksUpToToday.length > 0 ? (
-                      <div className="rounded-md border border-gray-200">
-                        <div className="p-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
-                          <h3 className="text-lg font-medium text-gray-700">No Tasks Assigned (Up to Today)</h3>
-                          <p className="text-sm text-gray-600">Staff with no tasks assigned for current period (up to today)</p>
-                        </div>
-                        <div className="p-4">
-                          <div className="space-y-4">
-                            {staffWithNoTasksUpToToday.map((staff) => (
-                              <div
-                                key={staff.id}
-                                className="flex items-center justify-between p-3 border border-gray-100 rounded-md bg-gray-50"
-                              >
-                                <div className="flex items-center gap-2">
-                                  <div className="h-10 w-10 rounded-full bg-gradient-to-r from-gray-500 to-gray-600 flex items-center justify-center">
-                                    <span className="text-sm font-medium text-white">{staff.name.charAt(0)}</span>
+                                const tasksUpToToday = staffTasks.filter(task => {
+                                  const taskStartDate = parseDateFromDDMMYYYY(task.taskStartDate);
+                                  if (!taskStartDate) return false;
+                                  return taskStartDate <= today;
+                                });
+
+                                return tasksUpToToday.length === 0;
+                              });
+
+                              return staffWithNoTasksUpToToday.length > 0 ? (
+                                <div className="rounded-md border border-gray-200">
+                                  <div className="p-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
+                                    <h3 className="text-lg font-medium text-gray-700">No Tasks Assigned (Up to Today)</h3>
+                                    <p className="text-sm text-gray-600">Staff with no tasks assigned for current period (up to today)</p>
                                   </div>
-                                  <div>
-                                    <p className="font-medium text-gray-700">{staff.name}</p>
-                                    <p className="text-xs text-gray-600">No tasks assigned up to today</p>
+                                  <div className="p-4">
+                                    <div className="space-y-4">
+                                      {staffWithNoTasksUpToToday.map((staff) => (
+                                        <div
+                                          key={staff.id}
+                                          className="flex items-center justify-between p-3 border border-gray-100 rounded-md bg-gray-50"
+                                        >
+                                          <div className="flex items-center gap-2">
+                                            <div className="h-10 w-10 rounded-full bg-gradient-to-r from-gray-500 to-gray-600 flex items-center justify-center">
+                                              <span className="text-sm font-medium text-white">{staff.name.charAt(0)}</span>
+                                            </div>
+                                            <div>
+                                              <p className="font-medium text-gray-700">{staff.name}</p>
+                                              <p className="text-xs text-gray-600">No tasks assigned up to today</p>
+                                            </div>
+                                          </div>
+                                          <div className="text-lg font-bold text-gray-600">N/A</div>
+                                        </div>
+                                      ))}
+                                    </div>
                                   </div>
                                 </div>
-                                <div className="text-lg font-bold text-gray-600">N/A</div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    ) : null;
-                  })()}
-                </>
-              );
-            })()}
-          </>
-        ) : (
-          <div className="text-center p-8 text-gray-500">
-            <p>
-              {dashboardType === "delegation"
-                ? "No delegation data available."
-                : "No staff data available. Please select a department from the dropdown."
-              }
-            </p>
-          </div>
-        )}
-      </div>
-    </div>
-  </div>
-)}
+                              ) : null;
+                            })()}
+                          </>
+                        );
+                      })()}
+                    </>
+                  ) : (
+                    <div className="text-center p-8 text-gray-500">
+                      <p>
+                        {dashboardType === "delegation"
+                          ? "No delegation data available."
+                          : "No staff data available. Please select a department from the dropdown."
+                        }
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </AdminLayout>
