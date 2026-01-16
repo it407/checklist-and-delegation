@@ -1,7 +1,9 @@
-//Pharmacy Tasks
+
+
+//PICU Tasks Page
 "use client"
 
-import { useState, useEffect, useCallback, useMemo } from "react"
+import { useState, useEffect, useCallback, useMemo ,useRef } from "react"
 import { CheckCircle2, Upload, X, Search, History, ArrowLeft } from "lucide-react"
 import AdminLayout from "../../components/layout/AdminLayout"
 
@@ -15,12 +17,12 @@ const CONFIG = {
   DRIVE_FOLDER_ID: "1tsHjLO0EC1TQ2Ry542eP46Ty_9m__0x0",
 
   // Sheet name to work with
-  SHEET_NAME: "Pharmacy",
+  SHEET_NAME: "Sales-Gem",
 
   // Page configuration
   PAGE_CONFIG: {
-    title: "Pharmacy Tasks",
-    historyTitle: "Pharmacy Task History",
+    title: "Data Analytics Tasks",
+    historyTitle: "Data Analytics Task History",
     description: "Showing today, tomorrow's tasks and past due tasks",
     historyDescription: "Read-only view of completed tasks with submission history",
   },
@@ -44,6 +46,133 @@ function AccountDataPage() {
   const [endDate, setEndDate] = useState("")
   const [userRole, setUserRole] = useState("")
   const [username, setUsername] = useState("")
+  const [selectedAdminItems, setSelectedAdminItems] = useState(new Set());
+  const [isAdminSubmitting, setIsAdminSubmitting] = useState(false);
+
+  const [leaveInputs, setLeaveInputs] = useState({})
+  const [showLeaveInput, setShowLeaveInput] = useState({})
+  const [leaveSubmitting, setLeaveSubmitting] = useState({})
+
+  const fileInputRef = useRef(null);
+const pasteBoxRef = useRef(null);
+
+
+const handleRemoveImage = (accountId) => {
+  setAccountData((prev) =>
+    prev.map((acc) =>
+      acc._id === accountId
+        ? { ...acc, image: null }
+        : acc
+    )
+  );
+};
+
+
+  const handleLeaveButtonClick = (id) => {
+    setShowLeaveInput((prev) => ({ ...prev, [id]: true }))
+    // Disable checkbox when leave button is clicked
+    setSelectedItems((prev) => {
+      const newSelected = new Set(prev)
+      newSelected.delete(id)
+      return newSelected
+    })
+  }
+
+  const handleLeaveInputChange = (id, value) => {
+    setLeaveInputs((prev) => ({ ...prev, [id]: value }))
+  }
+
+  const handleLeaveCancel = (id) => {
+    setShowLeaveInput((prev) => {
+      const newState = { ...prev }
+      delete newState[id]
+      return newState
+    })
+    setLeaveInputs((prev) => {
+      const newInputs = { ...prev }
+      delete newInputs[id]
+      return newInputs
+    })
+  }
+
+  const handleLeaveSubmit = async (id) => {
+    const leaveReason = leaveInputs[id]
+    if (!leaveReason || leaveReason.trim() === "") {
+      alert("Please enter a leave reason")
+      return
+    }
+
+    setLeaveSubmitting((prev) => ({ ...prev, [id]: true }))
+
+    try {
+      const today = new Date()
+      const todayFormatted = formatDateToDDMMYYYY(today)
+      const item = accountData.find((account) => account._id === id)
+
+      const formData = new FormData()
+      formData.append("sheetName", CONFIG.SHEET_NAME)
+      formData.append("action", "updateLeave")
+      formData.append("rowData", JSON.stringify([{
+        taskId: item["col1"],
+        rowIndex: item._rowIndex,
+        leaveReason: leaveReason,
+        actualDate: todayFormatted,
+      }]))
+
+      const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
+        method: "POST",
+        body: formData,
+      })
+
+      const result = await response.json()
+      console.log("result",result)
+
+      if (result.success) {
+        // Remove from pending tasks
+        setAccountData((prev) => prev.filter((account) => account._id !== id))
+
+        // Clear leave input state
+        setShowLeaveInput((prev) => {
+          const newState = { ...prev }
+          delete newState[id]
+          return newState
+        })
+        setLeaveInputs((prev) => {
+          const newInputs = { ...prev }
+          delete newInputs[id]
+          return newInputs
+        })
+
+        setSuccessMessage("Leave submitted successfully!")
+        setTimeout(() => setSuccessMessage(""), 3000)
+      } else {
+        alert("Failed to submit leave: " + result.error)
+      }
+    } catch (error) {
+      console.error("Error submitting leave:", error)
+      alert("Error submitting leave")
+    } finally {
+      setLeaveSubmitting((prev) => {
+        const newState = { ...prev }
+        delete newState[id]
+        return newState
+      })
+    }
+  }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
   const formatDateToDDMMYYYY = (date) => {
     const day = date.getDate().toString().padStart(2, "0")
@@ -120,22 +249,27 @@ function AccountDataPage() {
   const filteredAccountData = useMemo(() => {
     const filtered = searchTerm
       ? accountData.filter((account) =>
-          Object.values(account).some(
-            (value) => value && value.toString().toLowerCase().includes(searchTerm.toLowerCase()),
-          ),
-        )
+        Object.values(account).some(
+          (value) => value && value.toString().toLowerCase().includes(searchTerm.toLowerCase()),
+        ),
+      )
       : accountData
 
     return filtered.sort(sortDateWise)
   }, [accountData, searchTerm])
 
+
+
   const filteredHistoryData = useMemo(() => {
     return historyData
       .filter((item) => {
+        // नई condition: Column Q (col16) empty होना चाहिए
+        const isAdminStatusEmpty = !item["col16"] || item["col16"].toString().trim() === "";
+
         const matchesSearch = searchTerm
           ? Object.values(item).some(
-              (value) => value && value.toString().toLowerCase().includes(searchTerm.toLowerCase()),
-            )
+            (value) => value && value.toString().toLowerCase().includes(searchTerm.toLowerCase()),
+          )
           : true
 
         const matchesMember = selectedMembers.length > 0 ? selectedMembers.includes(item["col4"]) : true
@@ -158,7 +292,8 @@ function AccountDataPage() {
           }
         }
 
-        return matchesSearch && matchesMember && matchesDateRange
+        // सभी conditions include करें including नई admin status condition
+        return isAdminStatusEmpty && matchesSearch && matchesMember && matchesDateRange
       })
       .sort((a, b) => {
         const dateStrA = a["col10"] || ""
@@ -176,12 +311,12 @@ function AccountDataPage() {
     const memberStats =
       selectedMembers.length > 0
         ? selectedMembers.reduce((stats, member) => {
-            const memberTasks = historyData.filter((task) => task["col4"] === member).length
-            return {
-              ...stats,
-              [member]: memberTasks,
-            }
-          }, {})
+          const memberTasks = historyData.filter((task) => task["col4"] === member).length
+          return {
+            ...stats,
+            [member]: memberTasks,
+          }
+        }, {})
         : {}
     const filteredTotal = filteredHistoryData.length
 
@@ -209,6 +344,9 @@ function AccountDataPage() {
       return membersList.filter((member) => member.toLowerCase() === username.toLowerCase())
     }
   }
+
+
+
 
   const fetchSheetData = useCallback(async () => {
     try {
@@ -242,13 +380,16 @@ function AccountDataPage() {
       const currentUserRole = sessionStorage.getItem("role")
 
       const today = new Date()
+      today.setHours(0, 0, 0, 0) // Normalize to start of day
+
       const tomorrow = new Date(today)
       tomorrow.setDate(today.getDate() + 1)
 
       const todayStr = formatDateToDDMMYYYY(today)
       const tomorrowStr = formatDateToDDMMYYYY(tomorrow)
 
-      console.log("Filtering dates:", { todayStr, tomorrowStr })
+      console.log("🟢 TODAY'S DATE:", todayStr)
+      console.log("🔵 TOMORROW'S DATE:", tomorrowStr)
 
       const membersSet = new Set()
 
@@ -260,6 +401,8 @@ function AccountDataPage() {
       } else if (data.values) {
         rows = data.values.map((row) => ({ c: row.map((val) => ({ v: val })) }))
       }
+
+      console.log(`📊 Total rows from API: ${rows.length}`)
 
       rows.forEach((row, rowIndex) => {
         if (rowIndex === 0) return
@@ -274,6 +417,12 @@ function AccountDataPage() {
           return
         }
 
+        const columnRValue = rowValues[17] || "" // Column R - Leave Reason
+      if (columnRValue && columnRValue.toString().trim() !== "") {
+        console.log(`⏭️ Skipping task: Column R has leave reason (${columnRValue})`)
+        return // Skip this task entirely
+      }
+
         const assignedTo = rowValues[4] || "Unassigned"
         membersSet.add(assignedTo)
 
@@ -283,6 +432,7 @@ function AccountDataPage() {
         const columnGValue = rowValues[6]
         const columnKValue = rowValues[10]
         const columnMValue = rowValues[12]
+        const frequency = rowValues[7] || "" // Column H - Frequency
 
         if (columnMValue && columnMValue.toString().trim() === "DONE") {
           return
@@ -321,7 +471,9 @@ function AccountDataPage() {
           { id: "col12", label: "Status", type: "string" },
           { id: "col13", label: "Remarks", type: "string" },
           { id: "col14", label: "Uploaded Image", type: "string" },
-        ]
+          { id: "col15", label: "Admin Reminder", type: "string" },
+          { id: "col16", label: "Admin Status", type: "string" }
+        ];
 
         columnHeaders.forEach((header, index) => {
           const cellValue = rowValues[index]
@@ -334,19 +486,62 @@ function AccountDataPage() {
           }
         })
 
-        console.log(`Row ${rowIndex}: Task ID = ${rowData.col1}, Google Sheets Row = ${googleSheetsRowIndex}`)
+        console.log(`Row ${rowIndex}: Task ID = ${rowData.col1}, Frequency = ${frequency}, Task Date = ${formattedRowDate}`)
 
         const hasColumnG = !isEmpty(columnGValue)
         const isColumnKEmpty = isEmpty(columnKValue)
 
         if (hasColumnG && isColumnKEmpty) {
           const rowDate = parseDateFromDDMMYYYY(formattedRowDate)
-          const isToday = formattedRowDate === todayStr
-          const isTomorrow = formattedRowDate === tomorrowStr
-          const isPastDate = rowDate && rowDate <= today
 
-          if (isToday || isTomorrow || isPastDate) {
+          if (!rowDate) {
+            console.log(`❌ Invalid date for task ${rowData.col1}: ${formattedRowDate}`)
+            return // Skip if date is invalid
+          }
+
+          // Normalize row date to start of day for comparison
+          rowDate.setHours(0, 0, 0, 0)
+
+          const freqUpper = frequency.toString().toUpperCase().trim()
+
+          // Check if task should be shown based on frequency
+          let shouldShowTask = false
+
+          if (freqUpper.includes("WEEK")) {
+            // For WEEK: Show 3 days before task date
+            const threeDaysBefore = new Date(rowDate)
+            threeDaysBefore.setDate(rowDate.getDate() - 3)
+            shouldShowTask = today >= threeDaysBefore
+            console.log(`📅 WEEK: Today ${todayStr} >= ${formatDateToDDMMYYYY(threeDaysBefore)} = ${shouldShowTask}`)
+          }
+          else if (freqUpper.includes("MONTH")) {
+            // For MONTH: Show 1 week before task date
+            const oneWeekBefore = new Date(rowDate)
+            oneWeekBefore.setDate(rowDate.getDate() - 7)
+            shouldShowTask = today >= oneWeekBefore
+            console.log(`📅 MONTH: Today ${todayStr} >= ${formatDateToDDMMYYYY(oneWeekBefore)} = ${shouldShowTask}`)
+          }
+          else if (freqUpper.includes("QUARTER") || freqUpper.includes("QUATR") || freqUpper.includes("YEAR")) {
+            // For QUARTERLY and YEARLY: Show 1 month before task date
+            const oneMonthBefore = new Date(rowDate)
+            oneMonthBefore.setMonth(rowDate.getMonth() - 1)
+            shouldShowTask = today >= oneMonthBefore
+            console.log(`📅 QUARTERLY/YEARLY: Today ${todayStr} >= ${formatDateToDDMMYYYY(oneMonthBefore)} = ${shouldShowTask}`)
+          }
+          else {
+            // For DAILY or any other: Show today, tomorrow and past dates (original logic)
+            const isToday = formattedRowDate === todayStr
+            const isTomorrow = formattedRowDate === tomorrowStr
+            const isPastDate = rowDate <= today
+            shouldShowTask = isToday || isTomorrow || isPastDate
+            console.log(`📅 DAILY/OTHER: Today=${isToday}, Tomorrow=${isTomorrow}, Past=${isPastDate} = ${shouldShowTask}`)
+          }
+
+          if (shouldShowTask) {
+            console.log(`✅ ADDING to pending: ${rowData.col1} (${frequency})`)
             pendingAccounts.push(rowData)
+          } else {
+            console.log(`❌ SKIPPING task: ${rowData.col1} (${frequency})`)
           }
         } else if (hasColumnG && !isColumnKEmpty) {
           const isUserHistoryMatch =
@@ -357,12 +552,18 @@ function AccountDataPage() {
         }
       })
 
+      console.log(`\n📈 FINAL RESULTS:`, {
+        pendingTasks: pendingAccounts.length,
+        historyTasks: historyRows.length,
+        members: Array.from(membersSet)
+      })
+
       setMembersList(Array.from(membersSet).sort())
       setAccountData(pendingAccounts)
       setHistoryData(historyRows)
       setLoading(false)
     } catch (error) {
-      console.error("Error fetching sheet data:", error)
+      console.error("❌ Error fetching sheet data:", error)
       setError("Failed to load account data: " + error.message)
       setLoading(false)
     }
@@ -614,69 +815,273 @@ function AccountDataPage() {
     }
   }
 
+
+
+  const handleAdminSelectAllItems = useCallback(
+    (e) => {
+      if (userRole !== "admin") return;
+
+      e.stopPropagation();
+      const checked = e.target.checked;
+
+      if (checked) {
+        // सिर्फ वो items select करें जिनमें Admin Reminder "YES" है और DONE नहीं हैं
+        const adminItems = filteredHistoryData.filter(item =>
+          item["col15"] && item["col15"].toString().toUpperCase() === "YES" &&
+          !(item["col16"] && item["col16"].toString().toUpperCase() === "DONE")
+        ).map(item => item._id);
+
+        setSelectedAdminItems(new Set(adminItems));
+      } else {
+        setSelectedAdminItems(new Set());
+      }
+    },
+    [filteredHistoryData, userRole]
+  );
+
+  const handleAdminCheckboxClick = useCallback(
+    (e, id) => {
+      if (userRole !== "admin") return;
+
+      e.stopPropagation();
+      const isChecked = e.target.checked;
+
+      setSelectedAdminItems((prev) => {
+        const newSelected = new Set(prev);
+        if (isChecked) {
+          newSelected.add(id);
+        } else {
+          newSelected.delete(id);
+        }
+        return newSelected;
+      });
+    },
+    [userRole]
+  );
+
+  // Updated handleAdminMarkDone function - Column Q (col16) में store करेगा
+  // Updated handleAdminMarkDone function - Column Q (col16) में store करेगा
+  const handleAdminMarkDone = async (historyId = null) => {
+    console.log("🟡 handleAdminMarkDone called | historyId:", historyId);
+
+    if (userRole !== "admin") {
+      alert("Only admin can mark tasks as done");
+      console.warn("❌ Unauthorized: userRole =", userRole);
+      setIsAdminSubmitting(false);
+      return;
+    }
+
+    try {
+      // Step 1: Determine which items to process
+      const itemsToProcess = historyId
+        ? [historyData.find(item => item._id === historyId)]
+        : Array.from(selectedAdminItems).map(id => historyData.find(item => item._id === id));
+
+      console.log("📦 itemsToProcess:", itemsToProcess);
+
+      // Step 2: Filter valid items
+      const validItems = itemsToProcess.filter(item =>
+        item &&
+        item["col15"] &&
+        item["col15"].toString().toUpperCase() === "YES" &&
+        !(item["col16"] && item["col16"].toString().toUpperCase() === "DONE")
+      );
+
+      console.log("✅ validItems:", validItems);
+
+      if (validItems.length === 0) {
+        alert("No valid items to mark as done");
+        console.warn("⚠️ No valid items found for marking DONE");
+        return;
+      }
+
+      // Step 3: Confirm with admin
+      const confirmed = window.confirm(
+        `Are you sure you want to mark ${validItems.length} task(s) as DONE?`
+      );
+      if (!confirmed) {
+        console.info("🟢 Admin cancelled confirmation");
+        return;
+      }
+
+      // Step 4: Update local state immediately
+      setHistoryData(prev =>
+        prev.map(item => {
+          const shouldUpdate = validItems.some(validItem => validItem._id === item._id);
+          return shouldUpdate ? { ...item, col16: "DONE" } : item;
+        })
+      );
+
+      console.log("🟩 Local state updated (col16 = DONE) for:", validItems.map(v => v._id));
+
+      // Step 5: Prepare submission data for Google Sheets
+      const submissionData = validItems.map(item => ({
+        taskId: item["col1"],
+        rowIndex: item._rowIndex,
+        adminStatus: "DONE"  // Change from doneStatus to adminStatus
+      }));
+
+      console.log("📤 submissionData:", submissionData);
+
+      const formData = new FormData();
+      formData.append("sheetName", CONFIG.SHEET_NAME);
+      formData.append("action", "updateAdminStatus");  // Change action name
+      formData.append("rowData", JSON.stringify(submissionData));
+
+      console.log("📄 formData to send:", {
+        sheetName: CONFIG.SHEET_NAME,
+        action: "updateAdminStatus",
+        rowData: submissionData
+      });
+
+      // Step 6: Submit to Google Apps Script
+      console.log("🚀 Sending request to:", CONFIG.APPS_SCRIPT_URL);
+      const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
+        method: "POST",
+        body: formData,
+      });
+
+      console.log("📬 Response status:", response.status);
+
+      const result = await response.json();
+      console.log("🧾 API Response:", result);
+
+      // Step 7: Handle response
+      if (result.success) {
+        console.log(`✅ Successfully marked ${validItems.length} task(s) as DONE`);
+        setSuccessMessage(`Successfully marked ${validItems.length} task(s) as DONE!`);
+        setTimeout(() => setSuccessMessage(""), 5000);
+
+        setSelectedAdminItems(new Set()); // Clear selection
+      } else {
+        console.error("❌ Server returned an error:", result.error);
+        throw new Error(result.error);
+      }
+
+    } catch (error) {
+      console.error("🚨 Error marking task as done:", error);
+      alert("Error marking task as done");
+
+      // Step 8: Rollback in case of error
+      if (historyId) {
+        console.warn("↩️ Reverting local state for single historyId:", historyId);
+        const historyItem = historyData.find(item => item._id === historyId);
+        setHistoryData(prev =>
+          prev.map(item =>
+            item._id === historyId
+              ? { ...item, col16: historyItem["col16"] }
+              : item
+          )
+        );
+      }
+
+    }
+    finally {
+      setIsAdminSubmitting(false);
+    }
+  };
+
+
+  // Batch mark as done button के लिए function
+  const handleBatchAdminMarkDone = () => {
+    if (selectedAdminItems.size === 0) {
+      alert("Please select at least one item to mark as done");
+      return;
+    }
+    setIsAdminSubmitting(true); // Loading start
+    handleAdminMarkDone(); // Without specific ID for batch processing
+  };
+
+
+
+
   // Convert Set to Array for display
   const selectedItemsCount = selectedItems.size
 
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-          <h1 className="text-2xl font-bold tracking-tight text-purple-700">
-            {showHistory ? CONFIG.PAGE_CONFIG.historyTitle : CONFIG.PAGE_CONFIG.title}
-          </h1>
+        <div className="flex flex-col justify-between gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <h1 className="text-2xl font-bold tracking-tight text-purple-700 text-center sm:text-left">
+              {showHistory ? CONFIG.PAGE_CONFIG.historyTitle : CONFIG.PAGE_CONFIG.title}
+            </h1>
 
-          <div className="flex space-x-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-              <input
-                type="text"
-                placeholder={showHistory ? "Search history..." : "Search tasks..."}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2 border border-purple-200 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-              />
+            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+              <div className="relative w-full sm:w-auto">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                <input
+                  type="text"
+                  placeholder={showHistory ? "Search history..." : "Search tasks..."}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-purple-200 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={toggleHistory}
+                  className="rounded-md bg-gradient-to-r from-blue-500 to-indigo-600 py-2 px-4 text-white hover:from-blue-600 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 w-full sm:w-auto"
+                >
+                  {showHistory ? (
+                    <div className="flex items-center justify-center">
+                      <ArrowLeft className="h-4 w-4 mr-1" />
+                      <span>Back to Tasks</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center">
+                      <History className="h-4 w-4 mr-1" />
+                      <span>View History</span>
+                    </div>
+                  )}
+                </button>
+
+                {!showHistory && (
+                  <button
+                    onClick={handleSubmit}
+                    disabled={selectedItemsCount === 0 || isSubmitting}
+                    className="rounded-md bg-gradient-to-r from-purple-600 to-pink-600 py-2 px-4 text-white hover:from-purple-700 hover:to-pink-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
+                  >
+                    {isSubmitting ? "Processing..." : `Submit Selected (${selectedItemsCount})`}
+                  </button>
+                )}
+              </div>
             </div>
-
-            <button
-              onClick={toggleHistory}
-              className="rounded-md bg-gradient-to-r from-blue-500 to-indigo-600 py-2 px-4 text-white hover:from-blue-600 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-            >
-              {showHistory ? (
-                <div className="flex items-center">
-                  <ArrowLeft className="h-4 w-4 mr-1" />
-                  <span>Back to Tasks</span>
-                </div>
-              ) : (
-                <div className="flex items-center">
-                  <History className="h-4 w-4 mr-1" />
-                  <span>View History</span>
-                </div>
-              )}
-            </button>
-
-            {!showHistory && (
-              <button
-                onClick={handleSubmit}
-                disabled={selectedItemsCount === 0 || isSubmitting}
-                className="rounded-md bg-gradient-to-r from-purple-600 to-pink-600 py-2 px-4 text-white hover:from-purple-700 hover:to-pink-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isSubmitting ? "Processing..." : `Submit Selected (${selectedItemsCount})`}
-              </button>
-            )}
           </div>
+
+          {successMessage && (
+            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md flex items-center justify-between">
+              <div className="flex items-center">
+                <CheckCircle2 className="h-5 w-5 mr-2 text-green-500" />
+                {successMessage}
+              </div>
+              <button onClick={() => setSuccessMessage("")} className="text-green-500 hover:text-green-700">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          )}
+
+          {showHistory && userRole === "admin" && (
+            <div className="flex justify-center sm:justify-start">
+              <button
+                onClick={handleBatchAdminMarkDone}
+                disabled={selectedAdminItems.size === 0 || isAdminSubmitting}
+                className="rounded-md bg-gradient-to-r from-green-600 to-teal-600 py-2 px-4 text-white hover:from-green-700 hover:to-teal-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center w-full sm:w-auto"
+              >
+                {isAdminSubmitting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
+                    Processing...
+                  </>
+                ) : (
+                  `Mark Selected as Done (${selectedAdminItems.size})`
+                )}
+              </button>
+            </div>
+          )}
         </div>
 
-        {successMessage && (
-          <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md flex items-center justify-between">
-            <div className="flex items-center">
-              <CheckCircle2 className="h-5 w-5 mr-2 text-green-500" />
-              {successMessage}
-            </div>
-            <button onClick={() => setSuccessMessage("")} className="text-green-500 hover:text-green-700">
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-        )}
 
         <div className="rounded-lg border border-purple-200 shadow-md bg-white overflow-hidden">
           <div className="bg-gradient-to-r from-purple-50 to-pink-50 border-b border-purple-100 p-4">
@@ -809,6 +1214,24 @@ function AccountDataPage() {
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                          checked={filteredHistoryData.length > 0 &&
+                            filteredHistoryData.filter(item =>
+                              item["col15"] && item["col15"].toString().toUpperCase() === "YES" &&
+                              !(item["col16"] && item["col16"].toString().toUpperCase() === "DONE")
+                            ).length > 0 &&
+                            filteredHistoryData.filter(item =>
+                              item["col15"] && item["col15"].toString().toUpperCase() === "YES" &&
+                              !(item["col16"] && item["col16"].toString().toUpperCase() === "DONE")
+                            ).every(item => selectedAdminItems.has(item._id))
+                          }
+                          onChange={handleAdminSelectAllItems}
+                          disabled={userRole !== "admin"}
+                        />
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Task ID
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -851,82 +1274,106 @@ function AccountDataPage() {
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {filteredHistoryData.length > 0 ? (
-                      filteredHistoryData.map((history) => (
-                        <tr key={history._id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900">{history["col1"] || "—"}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{history["col2"] || "—"}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{history["col3"] || "—"}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{history["col4"] || "—"}</div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="text-sm text-gray-900 max-w-xs" title={history["col5"]}>
-                              {history["col5"] || "—"}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap bg-yellow-50">
-                            <div className="text-sm text-gray-900">{history["col6"] || "—"}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{history["col7"] || "—"}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{history["col8"] || "—"}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{history["col9"] || "—"}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap bg-green-50">
-                            <div className="text-sm font-medium text-gray-900">{history["col10"] || "—"}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap bg-blue-50">
-                            <span
-                              className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                history["col12"] === "Yes"
+                      filteredHistoryData.map((history) => {
+                        const requiresAdminAction = history["col15"] && history["col15"].toString().toUpperCase() === "YES";
+                        const isDone = history["col16"] && history["col16"].toString().toUpperCase() === "DONE"; // Column Q check करें
+                        const isSelected = selectedAdminItems.has(history._id);
+
+                        return (
+                          <tr key={history._id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              {requiresAdminAction ? (
+                                <input
+                                  type="checkbox"
+                                  className="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                                  checked={isSelected}
+                                  onChange={(e) => handleAdminCheckboxClick(e, history._id)}
+                                  disabled={isDone || userRole !== "admin"}
+                                />
+                              ) : (
+                                <input
+                                  type="checkbox"
+                                  className="h-4 w-4 rounded border-gray-300 text-gray-400"
+                                  checked={true}
+                                  disabled={true}
+                                />
+                              )}
+                            </td>
+
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm font-medium text-gray-900">{history["col1"] || "—"}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-900">{history["col2"] || "—"}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-900">{history["col3"] || "—"}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-900">{history["col4"] || "—"}</div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="text-sm text-gray-900 max-w-xs" title={history["col5"]}>
+                                {history["col5"] || "—"}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap bg-yellow-50">
+                              <div className="text-sm text-gray-900">{history["col6"] || "—"}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-900">{history["col7"] || "—"}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-900">{history["col8"] || "—"}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-900">{history["col9"] || "—"}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap bg-green-50">
+                              <div className="text-sm font-medium text-gray-900">{history["col10"] || "—"}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap bg-blue-50">
+                              <span
+                                className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${history["col12"] === "Yes"
                                   ? "bg-green-100 text-green-800"
                                   : history["col12"] === "No"
                                     ? "bg-red-100 text-red-800"
                                     : "bg-gray-100 text-gray-800"
-                              }`}
-                            >
-                              {history["col12"] || "—"}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 bg-purple-50">
-                            <div className="text-sm text-gray-900 max-w-xs" title={history["col13"]}>
-                              {history["col13"] || "—"}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {history["col14"] ? (
-                              <a
-                                href={history["col14"]}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-blue-600 hover:text-blue-800 underline flex items-center"
+                                  }`}
                               >
-                                <img
-                                  src={history["col14"] || "/placeholder.svg?height=32&width=32"}
-                                  alt="Attachment"
-                                  className="h-8 w-8 object-cover rounded-md mr-2"
-                                />
-                                View
-                              </a>
-                            ) : (
-                              <span className="text-gray-400">No attachment</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))
+                                {history["col12"] || "—"}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 bg-purple-50">
+                              <div className="text-sm text-gray-900 max-w-xs" title={history["col13"]}>
+                                {history["col13"] || "—"}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              {history["col14"] ? (
+                                <a
+                                  href={history["col14"]}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 hover:text-blue-800 underline flex items-center"
+                                >
+                                  <img
+                                    src={history["col14"] || "/placeholder.svg?height=32&width=32"}
+                                    alt="Attachment"
+                                    className="h-8 w-8 object-cover rounded-md mr-2"
+                                  />
+                                  View
+                                </a>
+                              ) : (
+                                <span className="text-gray-400">No attachment</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
                     ) : (
                       <tr>
-                        <td colSpan={13} className="px-6 py-4 text-center text-gray-500">
+                        <td colSpan={14} className="px-6 py-4 text-center text-gray-500">
                           {searchTerm || selectedMembers.length > 0 || startDate || endDate
                             ? "No historical records matching your filters"
                             : "No completed records found"}
@@ -934,6 +1381,7 @@ function AccountDataPage() {
                       </tr>
                     )}
                   </tbody>
+
                 </table>
               </div>
             </>
@@ -943,6 +1391,7 @@ function AccountDataPage() {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
+                    
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       <input
                         type="checkbox"
@@ -987,6 +1436,10 @@ function AccountDataPage() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Upload Image
                     </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Leave
+                    </th>
+
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -995,12 +1448,14 @@ function AccountDataPage() {
                       const isSelected = selectedItems.has(account._id)
                       return (
                         <tr key={account._id} className={`${isSelected ? "bg-purple-50" : ""} hover:bg-gray-50`}>
+                    
                           <td className="px-6 py-4 whitespace-nowrap">
                             <input
                               type="checkbox"
                               className="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
                               checked={isSelected}
                               onChange={(e) => handleCheckboxClick(e, account._id)}
+                              disabled={showLeaveInput[account._id]}
                             />
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
@@ -1063,57 +1518,134 @@ function AccountDataPage() {
                               className="border rounded-md px-2 py-1 w-full border-gray-300 disabled:bg-gray-100 disabled:cursor-not-allowed"
                             />
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap bg-green-50">
-                            {account.image ? (
-                              <div className="flex items-center">
-                                <img
-                                  src={
-                                    typeof account.image === "string"
-                                      ? account.image
-                                      : URL.createObjectURL(account.image)
-                                  }
-                                  alt="Receipt"
-                                  className="h-10 w-10 object-cover rounded-md mr-2"
+                             <td className="px-6 py-4 bg-green-50">
+  <div
+    tabIndex={0}
+    onClick={() => {
+    pasteBoxRef.current?.focus(); // 🔥 focus force
+  }}
+    // onClick={() => fileInputRef.current.click()}
+    onDoubleClick={() => fileInputRef.current.click()}
+
+    onPaste={(e) => {
+      e.preventDefault();
+      const items = e.clipboardData.items;
+
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.includes("image")) {
+          const file = items[i].getAsFile();
+          handleImageUpload(account._id, {
+            target: { files: [file] },
+          });
+        }
+      }
+    }}
+    className="border-2 border-dashed border-purple-400 px-6 py-2 w-48 h-16 flex items-center justify-center rounded-md cursor-pointer hover:border-purple-600"
+
+  >
+    {account.image ? (
+  <div className="relative flex items-center gap-2">
+    {/* ❌ CUT ICON */}
+    <button
+      onClick={(e) => {
+        e.stopPropagation(); // div click trigger na ho
+        handleRemoveImage(account._id);
+      }}
+      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full h-5 w-5 flex items-center justify-center text-xs hover:bg-red-600"
+      title="Remove image"
+    >
+      ✕
+    </button>
+
+    {/* IMAGE */}
+    <img
+      src={
+        typeof account.image === "string"
+          ? account.image
+          : URL.createObjectURL(account.image)
+      }
+      className="h-12 w-12 rounded object-cover"
+    />
+
+    <div className="flex flex-col">
+      <span className="text-xs text-gray-600">
+        Screenshot pasted
+      </span>
+      <span className="text-[10px] text-purple-600">
+        Click or paste again to replace
+      </span>
+    </div>
+  </div>
+) : (
+
+      // ✅ UPLOAD / PASTE UI
+      <div className="flex flex-col items-center">
+        <Upload className="h-4 w-4 text-purple-600 mb-1" />
+        <span className="text-xs text-purple-700 font-medium">
+          Click or Paste Screenshot
+        </span>
+        <span className="text-[8px] text-red-600 font-bold">
+  Single click to paste screenshot / 
+  Double click to upload image
+</span>
+
+      </div>
+    )}
+
+    <input
+      ref={fileInputRef}
+      type="file"
+      accept="image/*"
+      hidden
+      onChange={(e) => handleImageUpload(account._id, e)}
+    />
+  </div>
+</td>
+                                <td className="px-6 py-4 whitespace-nowrap bg-orange-50">
+                            {showLeaveInput[account._id] ? (
+                              <div className="flex flex-col gap-2">
+                                <input
+                                  type="text"
+                                  placeholder="Enter leave reason"
+                                  value={leaveInputs[account._id] || ""}
+                                  onChange={(e) => handleLeaveInputChange(account._id, e.target.value)}
+                                  className="border border-gray-300 rounded-md px-2 py-1 text-sm w-full"
+                                  disabled={leaveSubmitting[account._id]}
                                 />
-                                <div className="flex flex-col">
-                                  <span className="text-xs text-gray-500">
-                                    {account.image instanceof File ? account.image.name : "Uploaded Receipt"}
-                                  </span>
-                                  {account.image instanceof File ? (
-                                    <span className="text-xs text-green-600">Ready to upload</span>
-                                  ) : (
-                                    <button
-                                      className="text-xs text-purple-600 hover:text-purple-800"
-                                      onClick={() => window.open(account.image, "_blank")}
-                                    >
-                                      View Full Image
-                                    </button>
-                                  )}
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => handleLeaveSubmit(account._id)}
+                                    disabled={leaveSubmitting[account._id]}
+                                    className="bg-green-500 text-white px-3 py-1 rounded-md text-xs hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                                  >
+                                    {leaveSubmitting[account._id] ? (
+                                      <>
+                                        <div className="animate-spin rounded-full h-3 w-3 border-t-2 border-b-2 border-white mr-1"></div>
+                                        Submitting...
+                                      </>
+                                    ) : (
+                                      "Submit Leave"
+                                    )}
+                                  </button>
+                                  <button
+                                    onClick={() => handleLeaveCancel(account._id)}
+                                    disabled={leaveSubmitting[account._id]}
+                                    className="bg-red-500 text-white px-3 py-1 rounded-md text-xs hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    Cancel
+                                  </button>
                                 </div>
                               </div>
                             ) : (
-                              <label
-                                className={`flex items-center cursor-pointer ${account["col9"]?.toUpperCase() === "YES" ? "text-red-600 font-medium" : "text-purple-600"} hover:text-purple-800`}
+                              <button
+                                onClick={() => handleLeaveButtonClick(account._id)}
+                                className="bg-blue-500 text-white px-3 py-1 rounded-md text-sm hover:bg-blue-600"
                               >
-                                <Upload className="h-4 w-4 mr-1" />
-                                <span className="text-xs">
-                                  {account["col9"]?.toUpperCase() === "YES"
-                                    ? "Required Upload"
-                                    : "Upload Receipt Image"}
-                                  {account["col9"]?.toUpperCase() === "YES" && (
-                                    <span className="text-red-500 ml-1">*</span>
-                                  )}
-                                </span>
-                                <input
-                                  type="file"
-                                  className="hidden"
-                                  accept="image/*"
-                                  onChange={(e) => handleImageUpload(account._id, e)}
-                                  disabled={!isSelected}
-                                />
-                              </label>
+                                Leave
+                              </button>
                             )}
                           </td>
+
                         </tr>
                       )
                     })
@@ -1137,3 +1669,4 @@ function AccountDataPage() {
 }
 
 export default AccountDataPage
+

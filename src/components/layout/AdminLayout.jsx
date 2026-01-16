@@ -16,21 +16,6 @@ export default function AdminLayout({ children, darkMode, toggleDarkMode }) {
   const [showAnimation, setShowAnimation] = useState(false);
 
 
-  // Check authentication on component mount
-  // useEffect(() => {
-  //   const storedUsername = sessionStorage.getItem('username')
-  //   const storedRole = sessionStorage.getItem('role')
-
-  //   if (!storedUsername) {
-  //     // Redirect to login if not authenticated
-  //     navigate("/login")
-  //     return
-  //   }
-
-  //   setUsername(storedUsername)
-  //   setUserRole(storedRole || "user")
-  // }, [navigate])
-
 
   useEffect(() => {
     const storedUsername = sessionStorage.getItem("username");
@@ -106,9 +91,16 @@ export default function AdminLayout({ children, darkMode, toggleDarkMode }) {
     { id: "crm", name: "Supply Chain Coordination", link: "/dashboard/data/crm" },
     { id: "ea", name: "Performance Marketing", link: "/dashboard/data/ea" },
     { id: "telecaller", name: "Human Resources", link: "/dashboard/data/telecaller" },
-    // { id: "aushman", name: "Aushman", link: "/dashboard/data/aushman" },
-    // { id: "mod", name: "MOD", link: "/dashboard/data/mod" },
-    // { id: "pharmacy", name: "Pharmacy", link: "/dashboard/data/pharmacy" },
+
+
+
+    { id: "aushman", name: "Sales-GT", link: "/dashboard/data/aushman" },
+    { id: "mod", name: "Sales-PDS", link: "/dashboard/data/mod" },
+    { id: "pharmacy", name: "Sales-GEM", link: "/dashboard/data/pharmacy" },
+
+
+
+
     // ✅ ADD ALL THE MISSING PAGES:
     // { id: "nurshing-staff", name: "Nursing Staff", link: "/dashboard/data/nurshing-staff" },
     // { id: "nurshing-incharge", name: "Nursing Incharge", link: "/dashboard/data/nurshing-incharge" },
